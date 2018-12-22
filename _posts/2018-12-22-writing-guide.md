@@ -10,6 +10,7 @@ image from this [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-w
 
 > 이 문서는 [newgamedev.github.io](<https://newgamedev.github.io>) 에 기고를 할 때의 글쓰기 방법에 대한 가이드입니다.
 
+&nbsp;
 ## 기본적인 markdown 사용법
 
 이 홈페이지는 Jekyll 기반의 Github pages 를 사용하고 있습니다. Github pages 는 [2016년 5월 1일부터](<https://blog.github.com/2016-02-01-github-pages-now-faster-and-simpler-with-jekyll-3-0/>) [kramdown](<https://github.com/gettalong/kramdown>) 이라는 markdown 생성기만 지원하고 있습니다.
