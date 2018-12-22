@@ -31,7 +31,7 @@ image from this [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-w
 
 ### 강조
 
-__bold__, _italic_, ~~줄 긋기~~ 를 사용할 수 있습니다. 이 밖에 배경색 바꾸기 등 다양한 강조를 하고 싶다면 [html 요소 이용](<https://newgamedev.github.io/writing-guide/#html-%EC%9A%94%EC%86%8C-%EC%9D%B4%EC%9A%A9>)을 참고하세요.
+__bold__, _italic_, ~~줄 긋기~~ 를 사용할 수 있습니다.
 
 ```nil
 _italic_
@@ -52,7 +52,7 @@ __bold__
 
 ### 코드
 
-`인라인 코드`는 \` 를 앞뒤에 붙여서 나타냅니다. \` 나 \~ 를 세 개씩 위 아래로 쓰고 사이 줄에 코드를 쓰면 코드 블록을 정의할 수 있습니다. Github pages 는 [rouge](https://github.com/jneen/rouge) 를 사용해서 코드 블록에 자동으로 syntax highlighting 을 해줍니다. 언어를 명시하지 않아도 잘 찾아주긴 하지만 의도대로 결과가 나오도록 하려면 언어를 명시해주는 것이 좋습니다.
+`인라인 코드`는 \` 를 앞뒤에 붙여서 나타냅니다. \` 나 \~ 를 세 개씩 위 아래로 쓰고 줄바꿈으로 사이 줄에 코드를 쓰면 코드 블록을 정의할 수 있습니다. Github pages 는 [rouge](https://github.com/jneen/rouge) 를 사용해서 코드 블록에 자동으로 syntax highlighting 을 해줍니다. 언어를 명시하지 않아도 잘 찾아주긴 하지만 의도대로 결과가 나오도록 하려면 언어를 명시해주는 것이 좋습니다.
 
 띄어쓰기 4개를 이용해도 코드 블록을 만들 수 있지만 syntax highlighting 을 원하는 언어로 지정할 수 없습니다.
 
@@ -97,13 +97,38 @@ console.log('code block');
 - [ ] unchecked
 ```
 
-### html 요소 이용
 
-*밑줄*{:.underline}
-
-
-
+&nbsp;
 ## 수학식 (MathJax)
+
+이 홈페이지는 [texts.github.io](<https://texts.github.io/>) 에서 Fork 되었습니다. texts.github.io 에서는 [MathJax](<https://www.mathjax.org/>) 를 사용해서 수학식을 표현합니다.
+
+여기서는 기본적인 수식 사용 방법과 자주 쓰이는 수식들을 소개합니다. 자세한 내용은 위 홈페이지의 [Typesetting Math in Texts](<https://texts.github.io/typesetting-math-in-texts/>) 을 참고해주시기 바랍니다.
+
+
+### 수식 사용
+
+\$$ 를 수식 시작과 끝에 입력해서 사용할 수 있습니다. [코드 블록](<https://newgamedev.github.io/writing-guide/#%EC%BD%94%EB%93%9C>)처럼 줄바꿈을 통해 수식을 위한 별도의 공간을 마련할 수 있습니다. 이렇게 추가되는 수식은 중앙정렬로 표시됩니다.
+
+```nil
+there is a $$math expression$$ in sentence.
+$$
+center aligned math expression
+$$
+```
+
+### 등호, 부등호, 거의 같음
+
+$=$, $\lt$, $\gt$
+```nil
+
+```
+
+### 제곱(위첨자), 아래첨자, 분수
+
+```nil
+
+```
 
 
 &nbsp;
