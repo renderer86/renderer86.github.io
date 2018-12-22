@@ -20,7 +20,7 @@ image from this [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-w
 
 소제목입니다. 자동으로 글 가장 위쪽의 table of contents 에 들어가게 됩니다.
 
-``` text
+```text
 # h1
 ## h2
 ### h3
@@ -31,9 +31,9 @@ image from this [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-w
 
 ### 강조
 
-__bold__, _italic_ 입니다. 이 밖에 밑줄을 치고 싶거나 줄 긋기, 배경색 바꾸기 등 다양한 강조를 하고 싶다면 html 요소 이용을 참고하세요.
+__bold__, _italic_ 입니다. 이 밖에 밑줄을 치고 싶거나 줄 긋기, 배경색 바꾸기 등 다양한 강조를 하고 싶다면 [html 요소 이용](<https://newgamedev.github.io/writing-guide/#html-%EC%9A%94%EC%86%8C-%EC%9D%B4%EC%9A%A9>)을 참고하세요.
 
-``` text
+```text
 _italic_
 __bold__
 *italic*
@@ -44,7 +44,7 @@ __bold__
 
 [링크](<https://newgamedev.github.io/writing-guide/>)와 이미지는 비슷하지만, 글 없이 이미지만 나오게 할 때는 링크 앞에 ! 를 붙이고 링크 안의 문장은 alt(대체 문자열) 로 쓰입니다.
 
-``` text
+```text
 [text](<link address>)
 ![alt text](<image address>)
 ```
@@ -52,9 +52,10 @@ __bold__
 ### 코드
 
 `인라인 코드`는 \` 를 앞뒤에 붙여서 나타냅니다. \` 나 \~ 를 세 개씩 위 아래로 쓰고 사이 줄에 코드를 쓰면 코드 블록을 정의할 수 있습니다. Github pages 는 [rouge](https://github.com/jneen/rouge) 를 사용해서 코드 블록에 자동으로 syntax highlighting 을 해줍니다. 언어를 명시하지 않아도 잘 찾아주긴 하지만 의도대로 결과가 나오도록 하려면 언어를 명시해주는 것이 좋습니다.
+
 띄어쓰기 4개를 이용해도 코드 블록을 만들 수 있지만 syntax highlighting 을 원하는 언어로 지정할 수 없습니다.
 
-``` text
+```text
 `inline code`
 ~~~ javascript
 console.log('code block');
@@ -65,7 +66,7 @@ console.log('code block');
 
 \> 를 라인의 맨 앞에 써서 들여쓰기를 할 수 있습니다. 두 개 이상 쓰면 들여쓰기 안에서 들여쓰기를 만들 수 있습니다.
 
-``` text
+```text
 > blockquote
 >> nested blockquote
 >> nested blockquote
@@ -76,7 +77,7 @@ console.log('code block');
 
 라인 앞에 \*, \+, \- 을 쓰면 순서(숫자) 없는 리스트를, \1., \2. 등을 쓰면 순서 있는 리스트를 만들어줍니니다.
 
-``` text
+```text
 * un
 + ordered
 - list
