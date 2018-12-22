@@ -103,7 +103,7 @@ console.log('code block');
 
 이 홈페이지는 [texts.github.io](<https://texts.github.io/>) 에서 Fork 되었습니다. texts.github.io 에서는 [MathJax](<https://www.mathjax.org/>) 를 사용해서 수학식을 표현합니다.
 
-여기서는 기본적인 수식 사용 방법과 자주 쓰이는 수식들을 소개합니다. 자세한 내용은 위 홈페이지의 [Typesetting Math in Texts](<https://texts.github.io/typesetting-math-in-texts/>) 을 참고해주시기 바랍니다.
+여기서는 기본적인 수식 사용 방법과 자주 쓰이는 수식들을 소개합니다. 자세한 내용은 위 홈페이지의 [Typesetting Math in Texts](<https://texts.github.io/typesetting-math-in-texts/>), [stackexchange-mathematics 의 정리글](https://math.meta.stackexchange.com/questions/5020/mathjax-basic-tutorial-and-quick-reference<>) 을 참고해주시기 바랍니다.
 
 
 ### 수식 사용
@@ -119,15 +119,25 @@ $$
 
 ### 등호, 부등호, 거의 같음
 
-$$=$$, $$\lt$$, $$\gt$$
+$$=$$, $$\lt$$, $$\gt$$, $$\leq$$, $$\geq$$, $$\neq$$, $$\simeq$$
 ```nil
-
+$$=$$, $$\lt$$, $$\gt$$, $$\leq$$, $$\geq$$, $$\neq$$, $$\simeq$$
 ```
 
 ### 제곱(위첨자), 아래첨자, 분수
-
+$$2^2=4$$, $$a_1=1$$, $$\frac{1}{2}$$
 ```nil
+$$2^2=4$$, $$a_1=1$$, $$\frac{1}{2}$$
+```
 
+### 행렬
+$$
+\left[\begin{matrix}1.6 & 1.2 \\ -1.2 & 1.6\end{matrix}\right] = \left[\begin{matrix}0.8 & 0.6 \\ -0.6 & 0.8\end{matrix}\right] \times \left[\begin{matrix}2 & 0 \\ 0 & 2\end{matrix}\right]
+$$
+```nil
+$$
+\left[\begin{matrix}1.6 & 1.2 \\ -1.2 & 1.6\end{matrix}\right] = \left[\begin{matrix}0.8 & 0.6 \\ -0.6 & 0.8\end{matrix}\right] \times \left[\begin{matrix}2 & 0 \\ 0 & 2\end{matrix}\right]
+$$
 ```
 
 
