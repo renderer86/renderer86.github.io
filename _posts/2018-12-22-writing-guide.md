@@ -14,7 +14,7 @@ image from this [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-w
 
 이 홈페이지는 Jekyll 기반의 Github pages 를 사용하고 있습니다. Github pages 는 [2016년 5월 1일부터](<https://blog.github.com/2016-02-01-github-pages-now-faster-and-simpler-with-jekyll-3-0/>) [kramdown](<https://github.com/gettalong/kramdown>) 이라는 markdown 생성기만 지원하고 있습니다.
 
-여기서는 이 kramdown 에서 자주 쓰이는 문법을 정리해봅니다. 더 자세한 내용은 [공식 가이드](<https://kramdown.gettalong.org/syntax.html>)를 참고해주시기 바랍니다.
+여기서는 이 kramdown 에서 자주 쓰이는 문법을 정리해봅니다. 더 자세한 내용은 [kramdown 공식 가이드](<https://kramdown.gettalong.org/syntax.html>), [github help 페이지](<https://help.github.com/articles/basic-writing-and-formatting-syntax/>)를 참고해주시기 바랍니다.
 
 ### 헤더
 
@@ -31,13 +31,14 @@ image from this [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-w
 
 ### 강조
 
-__bold__, _italic_ 입니다. 이 밖에 밑줄을 치고 싶거나 줄 긋기, 배경색 바꾸기 등 다양한 강조를 하고 싶다면 [html 요소 이용](<https://newgamedev.github.io/writing-guide/#html-%EC%9A%94%EC%86%8C-%EC%9D%B4%EC%9A%A9>)을 참고하세요.
+__bold__, _italic_, ~~줄 긋기~~ 를 사용할 수 있습니다. 이 밖에 배경색 바꾸기 등 다양한 강조를 하고 싶다면 [html 요소 이용](<https://newgamedev.github.io/writing-guide/#html-%EC%9A%94%EC%86%8C-%EC%9D%B4%EC%9A%A9>)을 참고하세요.
 
 ```nil
 _italic_
 __bold__
 *italic*
 **bold**
+~~line through~~
 ```
 
 ### 링크, 이미지
