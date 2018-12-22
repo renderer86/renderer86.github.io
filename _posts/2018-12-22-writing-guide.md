@@ -89,12 +89,12 @@ console.log('code block');
 
 ### 체크 리스트
 
-[x] 리스트에 체크박스를 추가할 수 있습니다.
-[ ] 체크된 항목은 대괄호 안에 x 를 넣어줍니다.
+- [x] 리스트에 체크박스를 추가할 수 있습니다.
+- [ ] 체크된 항목은 대괄호 안에 x 를 넣어줍니다.
 
 ```nil
-[x] checked
-[ ] unchecked
+- [x] checked
+- [ ] unchecked
 ```
 
 ### html 요소 이용
