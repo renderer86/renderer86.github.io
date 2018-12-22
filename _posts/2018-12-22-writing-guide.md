@@ -42,7 +42,7 @@ __bold__
 
 ### 링크, 이미지
 
-[링크](<https://newgamedev.github.io/writing-guide/>)와 이미지는 비슷하지만, 글 없이 이미지만 나오게 할 때는 링크 앞에 ! 를 붙이고 링크 안의 문장은 alt(대체 문자열) 로 쓰입니다.
+[링크](<https://newgamedev.github.io/writing-guide/>)와 이미지는 비슷한 문법으로 사용할 수 있습니다. 글 없이 이미지만 나오게 할 때는 링크 앞에 ! 를 붙이고 링크 안의 문장은 alt(대체 문자열) 로 쓰입니다.
 
 ```nil
 [text](<link address>)
@@ -88,6 +88,11 @@ console.log('code block');
 
 ### html 요소 이용
 
+*밑줄*{:.underline}
+
+
+
+## 수학식 (MathJax)
 
 
 &nbsp;
