@@ -242,10 +242,9 @@ void main() {
     <textarea class='codeeditor canvas'>
 let canvas = document.getElementById('editor_canvas_2');
 let ctx = canvas.getContext('2d');
-ctx.fillStyle = 'black';
+ctx.fillStyle = 'pink';
 ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
-ctx.fill();
-    </textarea>
+ctx.fill();</textarea>
 </div>
 ```
 
