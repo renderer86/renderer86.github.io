@@ -251,12 +251,20 @@ y = fract(sin(x) * 5.0);</textarea>
 </div>
 
 &nbsp;
-* `canvas` : javascript 에서 접근할 수 있는 canvas 를 만들어서 코드의 실행 결과를 확인할 수 있게 합니다. canvas id 는 `'editor_canvas' + count.toString()` 입니다.
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+* `canvas` : javascript 에서 접근할 수 있는 canvas 를 만들어서 코드의 실행 결과를 확인할 수 있게 합니다. canvas id 는 `'editor_canvas' + count.toString()` 입니다. 그래프 코드는 [The Book of Shaders](<https://thebookofshaders.com/>) 를 참조했습니다.
 
 ```html
 <div>
     <textarea class='codeeditor canvas'>
-let canvas = document.getElementById('editor_canvas_2');
+let canvas = document.getElementById('editor_canvas_3');
 let ctx = canvas.getContext('2d');
 ctx.fillStyle = "#"+((1<<24)*Math.random()|0).toString(16);
 ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
@@ -266,7 +274,7 @@ ctx.fill();</textarea>
 
 <div>
     <textarea class='codeeditor canvas'>
-let canvas = document.getElementById('editor_canvas_2');
+let canvas = document.getElementById('editor_canvas_3');
 let ctx = canvas.getContext('2d');
 ctx.fillStyle = "#"+((1<<24)*Math.random()|0).toString(16);
 ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
@@ -274,7 +282,7 @@ ctx.fill();</textarea>
 </div>
 
 &nbsp;
-현재 `fragment`, `canvas` 둘 중 하나만 있으면 해당 editor 를 생성합니다. 두 `class` 는 중복해서 사용할 수 없습니다.
+현재 `fragment`, `fragment-graph`, `canvas` 셋 중 하나만 있으면 해당 editor 를 생성합니다. 세 `class` 는 서로 중복해서 사용할 수 없습니다.
 
 
 &nbsp;
@@ -284,6 +292,12 @@ ctx.fill();</textarea>
 &nbsp;
 
 &nbsp;
+
+&nbsp;
+
+* `inside` : `canvas` 또는 `renderer.domElement` 의 위치를 editor 안에 넣습니다. `fragment`, `fragment-graph` 는 기본이 `inside` 입니다.
+
+* `outside` : `canvas` 또는 `renderer.domElement` 의 위치를 editor 밖으로 뺍니다. `canvas` 는 기본이 `outside` 입니다.
 
 &nbsp;
 

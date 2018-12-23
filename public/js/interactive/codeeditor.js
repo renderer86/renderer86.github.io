@@ -95,7 +95,16 @@
                             editor.display.wrapper.parentNode.appendChild(canvas);
                             canvas.width = 360;
                             canvas.height = 300;
-                            addClass(canvas, 'previewOutside');
+
+                            if (hasClass(text_area, 'outside')) {
+                                addClass(canvas, 'previewOutside');
+                            }
+                            else if (hasClass(text_area, 'inside')) {
+                                addClass(canvas, 'previewInside');
+                            }
+                            else {
+                                addClass(canvas, 'previewOutside');
+                            }
                         }
 
                         eval(editor.getValue());
@@ -139,7 +148,17 @@
                         editor.display.wrapper.parentNode.appendChild(renderer.domElement);
                         uniforms.resolution.value.x = renderer.domElement.width;
                         uniforms.resolution.value.y = renderer.domElement.height;
-                        addClass(renderer.domElement, 'previewInside');
+
+                        if (hasClass(text_area, 'outside')) {
+                            addClass(renderer.domElement, 'previewOutside');
+                        }
+                        else if (hasClass(text_area, 'inside')) {
+                            addClass(renderer.domElement, 'previewInside');
+                        }
+                        else {
+                            addClass(renderer.domElement, 'previewInside');
+                        }
+                        
                         onWindowResize();
                         window.addEventListener('resize', onWindowResize, false);
                     }
@@ -305,7 +324,17 @@ void main(){
                         editor.display.wrapper.parentNode.appendChild(renderer.domElement);
                         uniforms.resolution.value.x = renderer.domElement.width;
                         uniforms.resolution.value.y = renderer.domElement.height;
-                        addClass(renderer.domElement, 'previewInside');
+
+                        if (hasClass(text_area, 'outside')) {
+                            addClass(renderer.domElement, 'previewOutside');
+                        }
+                        else if (hasClass(text_area, 'inside')) {
+                            addClass(renderer.domElement, 'previewInside');
+                        }
+                        else {
+                            addClass(renderer.domElement, 'previewInside');
+                        }
+
                         onWindowResize();
                         window.addEventListener('resize', onWindowResize, false);
                     }
