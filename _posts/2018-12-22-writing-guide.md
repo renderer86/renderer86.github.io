@@ -178,18 +178,50 @@ newgamedev 에서는 기술적인 글을 독자가 보다 쉽게 이해할 수 �
 
 ### 사용 방법
 
-아래와 같이 `div` 로 감싼 `textarea` 를 만들고, `class` 에 `codeeditor` 를 명시해줍니다.
+아래와 같이 `div` 로 감싼 `textarea` 를 만들고, `class` 에 `codeeditor` 를 명시해줍니다. 코드에 의도치 않은 공백이 생기지 않도록 `tag` 와 본문을 붙여서 써줍니다.
 
 ```html
 <div>
     <textarea class='codeeditor readonly'>
-        console.log('hello world!');
-    </textarea>
+console.log('hello world!');</textarea>
 </div>
 ```
 
 <div>
     <textarea class='codeeditor readonly'>
-        console.log('hello world!');
-    </textarea>
+console.log('hello world!');</textarea>
+</div>
+
+### 사용 가능한 class
+
+`class` 에 따라서 codemirror 의 옵션을 설정할 수 있습니다.
+
+현재 제공되는 옵션은 다음과 같습니다.
+
+* readonly : editor 의 편집을 불가능하게 합니다.
+
+* fragment : fragment shader 를 편집하고 그 결과를 즉시 확인할 수 있는 canvas 를 만듭니다.
+
+```html
+<div>
+    <textarea class='codeeditor fragment'>
+uniform vec2 resolution;
+uniform float time;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    vec3 col = 0.5 + 0.5*cos(time+uv.xyx+vec3(0,2,4));
+    gl_FragColor = vec4(vec3(col), 1.0);
+}</textarea>
+</div>
+```
+
+<div>
+    <textarea class='codeeditor fragment'>
+uniform vec2 resolution;
+uniform float time;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    vec3 col = 0.5 + 0.5*cos(time+uv.xyx+vec3(0,2,4));
+    gl_FragColor = vec4(vec3(col), 1.0);
+}</textarea>
 </div>
