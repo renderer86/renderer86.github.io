@@ -37,8 +37,10 @@ __bold__, _italic_, ~~줄 긋기~~ 를 사용할 수 있습니다.
 ```nil
 _italic_
 __bold__
+___bold and italic___
 *italic*
 **bold**
+***bold and italic***
 ~~line through~~
 ```
 
