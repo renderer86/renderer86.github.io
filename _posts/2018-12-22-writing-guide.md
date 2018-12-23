@@ -236,18 +236,18 @@ void main() {
 </div>
 
 &nbsp;
-* `fragment-graph` : fragment shader 를 이용해서 간단한 그래프를 그립니다. $$y = f(x)$$ 의 형태입니다.
+* `fragment-graph` : fragment shader 를 이용해서 간단한 그래프를 그립니다. $$y = f(x)$$ 의 형태입니다. `time`, `resolution` 을 사용할 수 있습니다.
 
 ```html
 <div>
     <textarea class='codeeditor fragment-graph'>
-y = fract(sin(x) * 5.0);</textarea>
+y = fract(sin(x+time) * 5.0);</textarea>
 </div>
 ```
 
 <div>
     <textarea class='codeeditor fragment-graph'>
-y = fract(sin(x) * 5.0);</textarea>
+y = fract(sin(x+time) * 5.0);</textarea>
 </div>
 
 &nbsp;
