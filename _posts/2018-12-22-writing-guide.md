@@ -32,7 +32,7 @@ image from [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-writin
 
 ### 강조
 
-__bold__, _italic_, ~~줄 긋기~~ 를 사용할 수 있습니다.
+_italic_, __bold__, ___bold and italic___, ~~줄 긋기~~ 를 사용할 수 있습니다.
 
 ```nil
 _italic_
