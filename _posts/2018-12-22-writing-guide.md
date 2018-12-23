@@ -114,7 +114,7 @@ footnote[^n]
 
 
 &nbsp;
-## 수학식 (MathJax)
+## 수학식(MathJax) 사용법
 
 이 홈페이지는 [texts.github.io](<https://texts.github.io/>) 에서 Fork 되었습니다. texts.github.io 에서는 [MathJax](<https://www.mathjax.org/>) 를 사용해서 수학식을 표현합니다.
 
