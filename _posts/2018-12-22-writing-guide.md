@@ -243,7 +243,7 @@ void main() {
     <textarea class='codeeditor canvas'>
 let canvas = document.getElementById('editor_canvas_2');
 let ctx = canvas.getContext('2d');
-ctx.fillStyle = 'pink';
+ctx.fillStyle = "#"+((1<<24)*Math.random()|0).toString(16);
 ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
 ctx.fill();</textarea>
 </div>
@@ -253,7 +253,7 @@ ctx.fill();</textarea>
     <textarea class='codeeditor canvas'>
 let canvas = document.getElementById('editor_canvas_2');
 let ctx = canvas.getContext('2d');
-ctx.fillStyle = 'pink';
+ctx.fillStyle = "#"+((1<<24)*Math.random()|0).toString(16);
 ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
 ctx.fill();</textarea>
 </div>
