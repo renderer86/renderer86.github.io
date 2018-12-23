@@ -255,11 +255,14 @@ let canvas = document.getElementById('editor_canvas_2');
 let ctx = canvas.getContext('2d');
 ctx.fillStyle = 'pink';
 ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
-ctx.fill();
-
-
-
-
-
-</textarea>
+ctx.fill();</textarea>
 </div>
+
+현재 `fragment`, `canvas` 둘 중 하나만 있으면 해당 editor 를 생성합니다. 두 `class` 는 중복해서 사용할 수 없습니다.
+
+
+&nbsp;
+&nbsp;
+&nbsp;
+
+_End of Document_

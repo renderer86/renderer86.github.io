@@ -30,6 +30,51 @@
                 // @TODO: add option variation
                 let editor = CodeMirror.fromTextArea(text_area, initial_option);
 
+                // if (hasClass(text_area, 'console')) {
+                //     let delay;
+                //
+                //     editor.on("change", function() {
+                //         clearTimeout(delay);
+                //         delay = setTimeout(updatePreview(editor), 300);
+                //     });
+                //
+                //     let messages = [];
+                //     // from https://stackoverflow.com/questions/19846078/how-to-read-from-chromes-console-in-javascript.
+                //     // but got RangeError: Maximum call stack size exceeded
+                //     console.defaultLog = console.log.bind(console);
+                //     console.log = function(){
+                //         // default &  console.log()
+                //         console.defaultLog.apply(console, arguments);
+                //         // new & array data
+                //         messages.push(Array.from(arguments));
+                //     }
+                //
+                //     let updatePreview = function(editor) {
+                //         let console_output;
+                //
+                //         if (document.getElementById('editor_console_output_' + i.toString())) {
+                //             console_output = document.getElementById('editor_console_output_' + i.toString());
+                //         }
+                //         else {
+                //             console_output = document.createElement('div');
+                //             console_output.id = 'editor_console_output_' + i.toString();
+                //             editor.display.wrapper.parentNode.appendChild(console_output);
+                //             addClass(console_output, 'consoleoutput');
+                //             console_output.innerHTML = ' ';
+                //         }
+                //
+                //         try {
+                //             messages = [];
+                //             eval(editor.getValue());
+                //         }
+                //         catch (e) {
+                //             messages.push(e);
+                //         }
+                //
+                //         console_output.innerHTML = messages;
+                //     }
+                //     setTimeout(updatePreview(editor), 300);
+                // }
                 if (hasClass(text_area, 'canvas')) {
                     let delay;
 
