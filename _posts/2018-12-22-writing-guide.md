@@ -1,5 +1,5 @@
 ---
-title: 기고자를 위한 글쓰기 안내문
+title: 기고자를 위한 문서 작성법 안내문
 date: 2018-12-22
 tags:
 - tutorial
@@ -11,7 +11,7 @@ shader: true
 ![](<../images/write.jpg>)
 image from [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-writing-game/>)
 
-> 이 문서는 [newgamedev.github.io](<https://newgamedev.github.io>) 에 기고를 할 때의 글쓰기 방법에 대한 가이드입니다.
+> 이 문서는 [newgamedev.github.io](<https://newgamedev.github.io>) 에 기고를 할 때의 문서 작성 방법에 대한 가이드입니다.
 
 &nbsp;
 ## 기본적인 markdown 사용법
