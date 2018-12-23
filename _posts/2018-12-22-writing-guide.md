@@ -235,6 +235,7 @@ void main() {
 </textarea>
 </div>
 
+&nbsp;
 * `canvas` : javascript 에서 접근할 수 있는 canvas 를 만들어서 코드의 실행 결과를 확인할 수 있게 합니다. canvas id 는 `'editor_canvas' + count.toString()` 입니다.
 
 ```html
@@ -254,5 +255,11 @@ let canvas = document.getElementById('editor_canvas_2');
 let ctx = canvas.getContext('2d');
 ctx.fillStyle = 'pink';
 ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
-ctx.fill();</textarea>
+ctx.fill();
+
+
+
+
+
+</textarea>
 </div>
