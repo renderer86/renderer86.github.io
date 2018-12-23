@@ -22,16 +22,19 @@
     /* z-index: 777; */
 }
 .previewInside {
-    width: 100%;
+    position: absolute;
+    width: 360px;
+    min-width: 360px;
     height: 280px;
     min-height: 280px;
     border: 1px solid gray;
     overflow: hidden;
-    margin-left: 125%;
+    left: 50%;
 }
 .previewOutside {
     width: 49%;
     heigth: 280px;
+    min-width: 350px;
     min-height: 280px;
     border: 1px solid gray;
     overflow: hidden;
@@ -55,4 +58,8 @@ canvas {
 }
 small {
     color: #772277;
+}
+.codeeditor {
+    display: none;
+    height: 10px;
 }
