@@ -174,7 +174,7 @@ $$
 ## interactive code editor 사용법
 
 newgamedev 에서는 기술적인 글을 독자가 보다 쉽게 이해할 수 있도록 interactive code editor 를 제공하고 있습니다.
-사용된 기술은 [codemirror](<https://codemirror.net/>), [three.js](<https://threejs.org/>) 이고 [Patricio Gonzalez Vivo](<https://github.com/patriciogonzalezvivo>) 가 [The Book of Shaders](<https://thebookofshaders.com/>) 를 위해 만든 [glslEditor](<https://github.com/patriciogonzalezvivo/glslEditor>) 의 작동 방식을 참고했습니다.
+사용된 주요 라이브러리는 [codemirror](<https://codemirror.net/>), [three.js](<https://threejs.org/>) 이고 [Patricio Gonzalez Vivo](<https://github.com/patriciogonzalezvivo>) 가 [The Book of Shaders](<https://thebookofshaders.com/>) 를 위해 만든 [glslEditor](<https://github.com/patriciogonzalezvivo/glslEditor>) 의 작동 방식을 참고했습니다.
 
 ### 사용 방법
 
