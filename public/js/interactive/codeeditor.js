@@ -32,7 +32,7 @@
 
                 if (hasClass(text_area, 'canvas')) {
                     let delay;
-                    
+
                     editor.on("change", function() {
                         clearTimeout(delay);
                         delay = setTimeout(updatePreview(editor), 300);
@@ -102,8 +102,8 @@
                         // let preview = previewFrame.contentDocument ||  previewFrame.contentWindow.document;
                         //
                         // renderer.setSize(preview.body.offsetWidth, preview.body.offsetHeight);
-                        // uniforms.resolution.value.x = renderer.domElement.width;
-                        // uniforms.resolution.value.y = renderer.domElement.height;
+                        uniforms.resolution.value.x = renderer.domElement.width;
+                        uniforms.resolution.value.y = renderer.domElement.height;
                     }
 
                     function animate() {
