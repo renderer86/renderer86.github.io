@@ -258,11 +258,18 @@ ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
 ctx.fill();</textarea>
 </div>
 
+&nbsp;
 현재 `fragment`, `canvas` 둘 중 하나만 있으면 해당 editor 를 생성합니다. 두 `class` 는 중복해서 사용할 수 없습니다.
 
 
 &nbsp;
+
 &nbsp;
+
+&nbsp;
+
+&nbsp;
+
 &nbsp;
 
 _End of Document_
