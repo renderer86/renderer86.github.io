@@ -192,6 +192,7 @@ console.log('hello world!');</textarea>
 console.log('hello world!');</textarea>
 </div>
 
+&nbsp;
 ### 사용 가능한 class
 
 `class` 에 따라서 codemirror 의 옵션을 설정할 수 있습니다.
