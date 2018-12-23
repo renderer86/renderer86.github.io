@@ -92,6 +92,8 @@
                         renderer = new THREE.WebGLRenderer();
                         renderer.setPixelRatio(window.devicePixelRatio);
                         editor.display.wrapper.parentNode.appendChild(renderer.domElement);
+                        uniforms.resolution.value.x = renderer.domElement.width;
+                        uniforms.resolution.value.y = renderer.domElement.height;
                         addClass(renderer.domElement, 'previewInside');
                         onWindowResize();
                         window.addEventListener('resize', onWindowResize, false);

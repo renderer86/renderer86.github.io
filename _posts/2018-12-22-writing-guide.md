@@ -199,9 +199,11 @@ console.log('hello world!');</textarea>
 
 현재 제공되는 옵션은 다음과 같습니다.
 
-* readonly : editor 의 편집을 불가능하게 합니다.
+* `codeeditor` : 기본 옵션입니다.
 
-* fragment : fragment shader 를 편집하고 그 결과를 즉시 확인할 수 있는 canvas 를 만듭니다.
+* `readonly` : editor 의 편집을 불가능하게 합니다.
+
+* `fragment` : fragment shader 를 편집하고 그 결과를 즉시 확인할 수 있는 canvas 를 만듭니다.
 
 ```html
 <div>
