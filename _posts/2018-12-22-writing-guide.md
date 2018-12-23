@@ -6,7 +6,7 @@ tags:
 ---
 
 ![](<../images/write.jpg>)
-image from this [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-writing-game/>)
+image from [link](<https://studybreaks.com/culture/nanowrimo-step-up-your-writing-game/>)
 
 > 이 문서는 [newgamedev.github.io](<https://newgamedev.github.io>) 에 기고를 할 때의 글쓰기 방법에 대한 가이드입니다.
 
@@ -96,6 +96,15 @@ console.log('code block');
 ```nil
 - [x] checked
 - [ ] unchecked
+```
+
+### 각주
+
+페이지의 끝에 각주를 달 수 있습니다. `[^1]`, `[^2]` 로 숫자를 직접 지정할 수도 있고, `[^n]` 을 써서 자동으로 넘버링되게 할 수 있습니다.
+
+```nil
+footnote[^n]
+[^n]: foot note description
 ```
 
 
