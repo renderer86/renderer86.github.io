@@ -236,6 +236,21 @@ void main() {
 </div>
 
 &nbsp;
+* `fragment-graph` : fragment shader 를 이용해서 간단한 그래프를 그립니다. $$y = f(x)$$ 의 형태입니다.
+
+```html
+<div>
+    <textarea class='codeeditor fragment-graph'>
+y = fract(sin(x) * 5.0);</textarea>
+</div>
+```
+
+<div>
+    <textarea class='codeeditor fragment-graph'>
+y = fract(sin(x) * 5.0);</textarea>
+</div>
+
+&nbsp;
 * `canvas` : javascript 에서 접근할 수 있는 canvas 를 만들어서 코드의 실행 결과를 확인할 수 있게 합니다. canvas id 는 `'editor_canvas' + count.toString()` 입니다.
 
 ```html
