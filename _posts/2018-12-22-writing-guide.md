@@ -228,3 +228,27 @@ void main() {
     gl_FragColor = vec4(vec3(col), 1.0);
 }</textarea>
 </div>
+
+* `canvas` : javascript 에서 접근할 수 있는 canvas 를 만들어서 코드의 실행 결과를 확인할 수 있게 합니다. canvas id 는 `'editor_canvas' + count.toString()` 입니다.
+
+```html
+<div>
+    <textarea class='codeeditor canvas'>
+let canvas = document.getElementById('editor_canvas_2');
+let ctx = canvas.getContext('2d');
+ctx.fillStyle = 'black';
+ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
+ctx.fill();
+    </textarea>
+</div>
+```
+
+<div>
+    <textarea class='codeeditor canvas'>
+let canvas = document.getElementById('editor_canvas_2');
+let ctx = canvas.getContext('2d');
+ctx.fillStyle = 'black';
+ctx.arc(canvas.width/2, canvas.height/2, canvas.height/3, 0, Math.PI * 2);
+ctx.fill();
+    </textarea>
+</div>
