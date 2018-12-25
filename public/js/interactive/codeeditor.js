@@ -110,6 +110,11 @@
                             else {
                                 addClass(canvas, 'previewOutside');
                             }
+
+                            if (hasClass(text_area, 'chartjs')) {
+                                canvas.width = 720;
+                                addClass(canvas, 'chart');
+                            }
                         }
 
                         eval(editor.getValue());

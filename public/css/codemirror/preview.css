@@ -63,3 +63,15 @@ small {
     display: none;
     height: 10px;
 }
+.consoleoutput {
+    width: 100%;
+    height: auto;
+    min-height: 16px;
+    max-height: 230px;
+    border: solid 1px #282828;
+    padding: 4px 16px;
+    background-color: #969696;
+}
+.chart {
+    width: 100% !important;
+}
