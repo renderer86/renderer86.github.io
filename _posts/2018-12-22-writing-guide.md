@@ -236,7 +236,7 @@ void main() {
 </div>
 
 &nbsp;
-* `fragment-graph` : fragment shader 를 이용해서 간단한 그래프를 그립니다. $$y = f(x)$$ 의 형태입니다. `time`, `resolution` 을 사용할 수 있습니다.
+* `fragment-graph` : fragment shader 를 이용해서 간단한 그래프를 그립니다. $$y = f(x)$$ 의 형태입니다. `time`, `resolution` 을 사용할 수 있습니다. 그래프 코드는 [The Book of Shaders](<https://thebookofshaders.com/>) 를 참조했습니다.
 
 ```html
 <div>
@@ -259,7 +259,7 @@ y = fract(sin(x+time) * 5.0);</textarea>
 &nbsp;
 
 &nbsp;
-* `canvas` : javascript 에서 접근할 수 있는 canvas 를 만들어서 코드의 실행 결과를 확인할 수 있게 합니다. canvas id 는 `'editor_canvas_' + count.toString()` 입니다. 그래프 코드는 [The Book of Shaders](<https://thebookofshaders.com/>) 를 참조했습니다.
+* `canvas` : javascript 에서 접근할 수 있는 canvas 를 만들어서 코드의 실행 결과를 확인할 수 있게 합니다. canvas id 는 `'editor_canvas_' + count.toString()` 입니다.
 
 ```html
 <div>
