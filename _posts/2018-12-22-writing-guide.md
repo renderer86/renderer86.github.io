@@ -299,6 +299,77 @@ ctx.fill();</textarea>
 
 * `outside` : `canvas` 또는 `renderer.domElement` 의 위치를 editor 밖으로 뺍니다. `canvas` 는 기본이 `outside` 입니다.
 
+* `fold` : editor 의 코드를 접을 수 있게 해줍니다. `data-foldlines` 에서 접어야 할 행을 `#` 기호로 구분하여 여러 개 넣을 수 있습니다. 여기서 세는 숫자는 0부터 시작하기 때문에 실제 editor 에서 보이는 line number - 1 을 기준으로 넣어주셔야 합니다. 접을 수 없는 행을 지정했을 경우 아무런 변화가 일어나지 않습니다.
+
+```html
+<div>
+    <textarea class='codeeditor fold' data-foldlines='4#11'>
+let raceCount = 5;
+let hexGrid = initGrid(5);
+drawGrid(hexGrid);
+
+function HexCell(x, y, z, race) {
+    this._x = x;
+    this._y = y;
+    this._z = z;
+    this._race = race;
+}
+
+function initGrid(mapSize) {
+    mapSize = Math.max(1, mapSize);
+    let gridArray = [];
+    let cnt = 0;
+
+    for (let i = -mapSize; i < mapSize + 1; i += 1) {
+        for (let j = -mapSize; j < mapSize + 1; j += 1) {
+            for (let k = -mapSize; k < mapSize + 1; k += 1) {
+                if (i + j + k == 0) {
+                    gridArray.push(new HexCell(i, j, k, Math.floor(Math.random() * raceCount)));
+                    cnt += 1;
+                }
+            }
+        }
+    }
+
+    return gridArray;
+}</textarea>
+</div>
+```
+
+<div>
+    <textarea class='codeeditor fold' data-foldlines='4#11'>
+let raceCount = 5;
+let hexGrid = initGrid(5);
+drawGrid(hexGrid);
+
+function HexCell(x, y, z, race) {
+    this._x = x;
+    this._y = y;
+    this._z = z;
+    this._race = race;
+}
+
+function initGrid(mapSize) {
+    mapSize = Math.max(1, mapSize);
+    let gridArray = [];
+    let cnt = 0;
+
+    for (let i = -mapSize; i < mapSize + 1; i += 1) {
+        for (let j = -mapSize; j < mapSize + 1; j += 1) {
+            for (let k = -mapSize; k < mapSize + 1; k += 1) {
+                if (i + j + k == 0) {
+                    gridArray.push(new HexCell(i, j, k, Math.floor(Math.random() * raceCount)));
+                    cnt += 1;
+                }
+            }
+        }
+    }
+
+    return gridArray;
+}</textarea>
+</div>
+
+
 &nbsp;
 
 _End of Document_

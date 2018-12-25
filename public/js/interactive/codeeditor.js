@@ -27,6 +27,11 @@
                     initial_option['mode'] = 'x-shader/x-fragment';
                 }
 
+                if (hasClass(text_area, 'fold')) {
+                    initial_option['foldGutter'] = true;
+                    initial_option['gutters'] = ["CodeMirror-linenumbers", "CodeMirror-foldgutter"];
+                }
+
                 // @TODO: add option variation
                 let editor = CodeMirror.fromTextArea(text_area, initial_option);
 
@@ -75,7 +80,7 @@
                 //     }
                 //     setTimeout(updatePreview(editor), 300);
                 // }
-                if (hasClass(text_area, 'canvas')) {
+                if (hasClass(text_area, 'canvas') || hasClass(text_area, 'chartjs')) {
                     let delay;
 
                     editor.on("change", function() {
@@ -158,7 +163,7 @@
                         else {
                             addClass(renderer.domElement, 'previewInside');
                         }
-                        
+
                         onWindowResize();
                         window.addEventListener('resize', onWindowResize, false);
                     }
@@ -372,6 +377,14 @@ void main(){
                         mesh.material = material;
                     }
                     setTimeout(updatePreview(editor), 300);
+                }
+
+                // fold
+                if (hasClass(text_area, 'fold')) {
+                    let lines = text_area.dataset.foldlines.split('#');
+                    for (let j = 0; j < lines.length; j++) {
+                        editor.foldCode(CodeMirror.Pos(parseInt(lines[j]), 0));
+                    }
                 }
             }
         }
