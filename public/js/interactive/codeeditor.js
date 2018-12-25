@@ -153,7 +153,7 @@
                         });
                         mesh = new THREE.Mesh(geometry, material);
                         scene.add(mesh);
-                        renderer = new THREE.WebGLRenderer();
+                        renderer = new THREE.WebGLRenderer({alpha: true});
                         renderer.setPixelRatio(window.devicePixelRatio);
                         editor.display.wrapper.parentNode.appendChild(renderer.domElement);
                         uniforms.resolution.value.x = renderer.domElement.width;
