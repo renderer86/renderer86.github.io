@@ -370,6 +370,7 @@ function initGrid(mapSize) {
 }</textarea>
 </div>
 
+&nbsp;
 * `mark` : editor 의 코드에 강조 표시를 해줍니다. `data-marklines` 에서 강조할 문자의 `startline`, `startcolumn`, `endline`, `endcolumn` 을 `_` 로 연결해줍니다. `fold` 처럼 여러 개의 강조를 `#` 로 연결할 수도 있습니다. 여기서 세는 숫자는 0부터 시작하기 때문에 실제 editor 에서 보이는 line number - 1 을 기준으로 넣어주셔야 합니다. 강조할 수 없는 영역을 지정했을 경우 아무런 변화가 일어나지 않습니다.
 
 ```html
