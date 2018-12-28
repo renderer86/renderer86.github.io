@@ -1,8 +1,8 @@
 ---
 layout: page
-permalink: /tags/
+permalink: /tags_en/
 title: Tags
-lang: kr
+lang: en
 ref: tags
 ---
 
