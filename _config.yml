@@ -21,3 +21,6 @@ defaults:
 
 plugins:
     - jekyll-feed
+
+lang: kr
+languages: ["kr", "en"]
