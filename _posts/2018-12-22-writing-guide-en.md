@@ -2,6 +2,7 @@
 title: Writing guide
 date: 2018-12-22
 lang: en
+ref: writing-guide
 tags:
 - tutorial
 interactive: true

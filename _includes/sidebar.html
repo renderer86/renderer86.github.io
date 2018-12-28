@@ -14,7 +14,7 @@
     <a class="sidebar-nav-item{% if page.url == node.url %} active{% endif %}" href="{{ site.baseurl }}/tags">Tags</a>
 
     <!-- {% assign posts_list = site.posts | sort:"url" %} -->
-    {% assign posts_list = site.posts %}
+    {% assign posts_list = site.posts | where:"lang", page.lang %}
     {% for node in posts_list %}
       {% if node.title != null %}
         <a class="sidebar-nav-item{% if page.url == node.url %} active{% endif %}" href="{{ node.url }}">📝 {{ node.title }}</a>

@@ -2,6 +2,7 @@
 title: 기고자를 위한 문서 작성법 안내문
 date: 2018-12-22
 lang: kr
+ref: writing-guide
 tags:
 - tutorial
 interactive: true
