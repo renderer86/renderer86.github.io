@@ -1,6 +1,8 @@
 ---
 layout: page
 title: About
+lang: kr
+ref: about
 ---
 
 Hey there! This page is included as an example. Feel free to customize it for
