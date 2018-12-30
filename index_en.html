@@ -6,7 +6,7 @@ ref: home
 ---
 
 <div class="posts">
-  {% assign posts = paginator.posts | where:"lang", "en" %}
+  {% assign posts = site.posts | where:"lang", "en" %}
   {% for post in posts %}
   <div class="post">
     <h1 class="post-title">
@@ -23,7 +23,7 @@ ref: home
   {% endfor %}
 </div>
 
-<div class="pagination">
+<!-- <div class="pagination">
   {% if paginator.next_page %}
     <a class="pagination-item older" href="{{ site.baseurl }}/page{{paginator.next_page}}">Older</a>
   {% else %}
@@ -38,4 +38,4 @@ ref: home
   {% else %}
     <span class="pagination-item newer">Newer</span>
   {% endif %}
-</div>
+</div> -->
