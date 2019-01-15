@@ -439,9 +439,47 @@ void main() {
 </div>
 
 &nbsp;
+
 &nbsp;
+
 &nbsp;
+
 &nbsp;
+
 &nbsp;
+
+&nbsp;
+* `texture` : fragment shader 에 texture 입력을 추가합니다. `data-texture0`~`data-texture7` 에 이미지의 경로를 넣어서 최대 8장의 texture 를 입력으로 사용할 수 있습니다.
+
+```html
+<div>
+<textarea class='codeeditor fragment texture' data-texture0='../images/shadertoy_london.jpg'>
+uniform sampler2D texture0;
+uniform vec2 resolution;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    gl_FragColor = texture2D(texture0, uv);
+}</textarea>
+</div>
+```
+
+<div>
+<textarea class='codeeditor fragment texture' data-texture0='../images/shadertoy_london.jpg'>
+uniform sampler2D texture0;
+uniform vec2 resolution;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    gl_FragColor = texture2D(texture0, uv);
+}
+
+
+
+
+
+
+</textarea>
+</div>
+
+<small>Image from [Shadertoy](<https://www.shadertoy.com/>)</small>
 
 _End of Document_
