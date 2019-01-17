@@ -159,7 +159,7 @@
                                 if (text_area.dataset[texture]) {
                                     uniforms[texture] = {
                                         type: 't',
-                                        value: THREE.ImageUtils.loadTexture(text_area.dataset[texture])
+                                        value: new THREE.TextureLoader().load(text_area.dataset[texture])
                                     }
                                 }
                             }
