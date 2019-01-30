@@ -300,6 +300,8 @@ For now, only one of `fragment`, `fragment-graph`, `canvas` is required to gener
 
 * `outside` : It takes out the position of `canvas` or `renderer.domElement` from the editor. `outside` is the default for `canvas`.
 
+* `outsideLeft` : The default alignment of `outside` is right, but use this class to change it to the left.
+
 * `fold` : You can fold the editor's code. You can specify the lines you want to fold in `data-foldlines` using `#` sign. Here the counting starts from 0, so the line number -1, which appears so in the editor, should be the standard. If you designate the lines that cannot be folded, nothing happens.
 
 ```html

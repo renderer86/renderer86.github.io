@@ -302,6 +302,8 @@ ctx.fill();</textarea>
 
 * `outside` : `canvas` 또는 `renderer.domElement` 의 위치를 editor 밖으로 뺍니다. `canvas` 는 기본이 `outside` 입니다.
 
+* `outsideLeft` : `outside` 의 기본 정렬은 오른쪽이지만 이 class 를 이용해서 왼쪽으로 바꿔줍니다.
+
 * `fold` : editor 의 코드를 접을 수 있게 해줍니다. `data-foldlines` 에서 접어야 할 행을 `#` 기호로 구분하여 여러 개 넣을 수 있습니다. 여기서 세는 숫자는 0부터 시작하기 때문에 실제 editor 에서 보이는 line number - 1 을 기준으로 넣어주셔야 합니다. 접을 수 없는 행을 지정했을 경우 아무런 변화가 일어나지 않습니다.
 
 ```html
