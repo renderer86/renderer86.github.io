@@ -109,6 +109,9 @@
                             if (hasClass(text_area, 'outside')) {
                                 addClass(canvas, 'previewOutside');
                             }
+                            else if (hasClass(text_area, 'outsideLeft')) {
+                                addClass(canvas, 'previewOutsideLeft');
+                            }
                             else if (hasClass(text_area, 'inside')) {
                                 addClass(canvas, 'previewInside');
                             }
@@ -131,6 +134,7 @@
                     let camera, scene, renderer;
                     let material, mesh;
                     let uniforms;
+                    let mouse = new THREE.Vector2();
                     let VERTEX = `void main() { gl_Position = vec4( position, 1.0 ); }`;
 
                     init_3d();
@@ -141,6 +145,7 @@
                         camera.position.z = 1;
                         scene = new THREE.Scene();
                         var geometry = new THREE.PlaneBufferGeometry(2, 2);
+
                         uniforms = {
                             time: {
                                 type: "f",
@@ -149,8 +154,26 @@
                             resolution: {
                                 type: "v2",
                                 value: new THREE.Vector2()
+                            },
+                            mouse: {
+                                type: "v2",
+                                value: new THREE.Vector2()
                             }
                         };
+
+                        // texture check
+                        if (hasClass(text_area, 'texture')) {
+                            for (let i = 0; i < 8; i++) {
+                                let texture = 'texture' + (i).toString();
+                                if (text_area.dataset[texture]) {
+                                    uniforms[texture] = {
+                                        type: 't',
+                                        value: new THREE.TextureLoader().load(text_area.dataset[texture])
+                                    }
+                                }
+                            }
+                        }
+
                         material = new THREE.ShaderMaterial({
                             uniforms: uniforms,
                             vertexShader: VERTEX,
@@ -171,6 +194,9 @@
                         if (hasClass(text_area, 'outside')) {
                             addClass(renderer.domElement, 'previewOutside');
                         }
+                        else if (hasClass(text_area, 'outsideLeft')) {
+                            addClass(renderer.domElement, 'previewOutsideLeft');
+                        }
                         else if (hasClass(text_area, 'inside')) {
                             addClass(renderer.domElement, 'previewInside');
                         }
@@ -180,6 +206,13 @@
 
                         onWindowResize();
                         window.addEventListener('resize', onWindowResize, false);
+                        window.addEventListener('mousemove', function(event) {
+                            const elem_pos = findPos(renderer.domElement);
+                            let mouseX = Math.min(Math.max(event.pageX - elem_pos.left, 0), renderer.domElement.width);
+                            let mouseY = Math.min(Math.max(event.pageY - elem_pos.top, 0), renderer.domElement.height);
+                            mouse.x = (mouseX / renderer.domElement.width) * 2 - 1;
+                            mouse.y = -(mouseY / renderer.domElement.height) * 2 + 1;
+                        }, false);
                     }
 
                     function onWindowResize(event) {
@@ -198,6 +231,7 @@
 
                     function render() {
                         uniforms.time.value += 0.02;
+                        uniforms.mouse.value.copy(mouse);
                         renderer.render(scene, camera);
                     }
 
@@ -351,6 +385,9 @@ void main(){
                         if (hasClass(text_area, 'outside')) {
                             addClass(renderer.domElement, 'previewOutside');
                         }
+                        else if (hasClass(text_area, 'outsideLeft')) {
+                            addClass(renderer.domElement, 'previewOutsideLeft');
+                        }
                         else if (hasClass(text_area, 'inside')) {
                             addClass(renderer.domElement, 'previewInside');
                         }
@@ -415,6 +452,12 @@ void main(){
                                         {className: "styled-background"});
                     }
                 }
+
+                // hidden
+                if (hasClass(text_area, 'hidden')) {
+                    editor.getWrapperElement().style.display = 'none';
+                }
+
             }
         }
         else {

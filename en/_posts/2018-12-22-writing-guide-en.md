@@ -300,6 +300,8 @@ For now, only one of `fragment`, `fragment-graph`, `canvas` is required to gener
 
 * `outside` : It takes out the position of `canvas` or `renderer.domElement` from the editor. `outside` is the default for `canvas`.
 
+* `outsideLeft` : The default alignment of `outside` is right, but use this class to change it to the left.
+
 * `fold` : You can fold the editor's code. You can specify the lines you want to fold in `data-foldlines` using `#` sign. Here the counting starts from 0, so the line number -1, which appears so in the editor, should be the standard. If you designate the lines that cannot be folded, nothing happens.
 
 ```html
@@ -404,5 +406,80 @@ function HexCell(x, y, z, race) {
 </div>
 
 &nbsp;
+* `hidden` : hide code editor.
+
+```html
+<div>
+    <textarea class='codeeditor fragment hidden'>
+uniform vec2 resolution;
+uniform float time;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    vec3 col = 0.5 + 0.5*cos(time+uv.xyx+vec3(0,2,4));
+    gl_FragColor = vec4(vec3(col), 1.0);
+}</textarea>
+</div>
+```
+
+<div>
+    <textarea class='codeeditor fragment hidden'>
+uniform vec2 resolution;
+uniform float time;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    vec3 col = 0.5 + 0.5*cos(time+uv.xyx+vec3(0,2,4));
+    gl_FragColor = vec4(vec3(col), 1.0);
+}
+
+
+
+
+
+</textarea>
+</div>
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+* `texture` : Add texture input to the fragment shader. You can use up to 8 textures as input by putting the path of the image in `data-texture0`~`data-texture7`.
+
+```html
+<div>
+<textarea class='codeeditor fragment texture' data-texture0='../images/shadertoy_london.jpg'>
+uniform sampler2D texture0;
+uniform vec2 resolution;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    gl_FragColor = texture2D(texture0, uv);
+}</textarea>
+</div>
+```
+
+<div>
+<textarea class='codeeditor fragment texture' data-texture0='../images/shadertoy_london.jpg'>
+uniform sampler2D texture0;
+uniform vec2 resolution;
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    gl_FragColor = texture2D(texture0, uv);
+}
+
+
+
+
+
+
+</textarea>
+</div>
+
+<small>Image from [Shadertoy](<https://www.shadertoy.com/>)</small>
 
 _End of Document_
