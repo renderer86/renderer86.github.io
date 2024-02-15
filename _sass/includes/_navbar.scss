@@ -1,0 +1,204 @@
+// To clear things when we float the element inside nav and ul
+.clear {
+  *zoom: 1;
+
+  &:after {
+    clear: both;
+  }
+
+  &:before,
+  &:after {
+    content: " ";
+    display: table;
+  }
+}
+
+.site-header {
+  z-index: 1;
+  position: sticky;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  
+  padding: 33px 50px 0;
+  // background-image: url('/ncresearch/assets/img/renewal/header.png');
+  background-image: none !important;
+  background: var(--white);
+  // background-size: cover;
+  // background: var(--background) !important;
+  display: inline-block;
+  float: left;
+  width: 100%;
+  height: 86px;
+  font-weight: 500;
+  color: var(--gray500);
+
+  .separator {
+    user-select: none;
+    opacity: 0;
+
+    &:first-child {
+      display: none;
+    }
+  }
+
+  @media screen and (max-width: 1305px) {
+    padding: 33px 30px 0;
+  }
+
+  .main_page_a {
+    // color: var(--gray50);
+    text-decoration: none;
+  }
+
+  .main_page_a:hover {
+    color: var(--blue500);
+  }
+
+  a {
+    color: var(--gray500);
+    text-decoration: none;
+    font-size: 1.25rem !important;
+  }
+
+  a:hover {
+    text-decoration: none !important;
+  }
+
+  .avatar {
+    // height: 2.27em;
+    // width: 12.627rem;
+    float: left;
+    // margin-top: -13px;
+    border-radius: 0 !important;
+    margin-right: 0.5em;
+    padding: 0.01rem;
+    width: 8.8125rem;
+  }
+
+  .site-title {
+    float: left;
+    font-weight: bold;
+    font-family: $font-family-logo;
+    font-size: 1.3em;
+  }
+}
+
+nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    line-height: 1.5;
+    float: right;
+    text-align: right;
+    display: block;
+  }
+
+  li {
+    display: inline;
+    float: left;
+    margin-right: 1.4rem;
+    height: 24px;
+    line-height: 24px;
+  }
+
+  a {
+    &:hover {
+      color: var(--link);
+    }
+
+    &#pull {
+      i {
+        margin-right: 10px;
+        float: right;
+      }
+
+    }
+
+  }
+}
+
+/* ---- Responsive ---- */
+
+@media (min-width: 1000px) {
+  a#pull {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 999px) {
+  .site-header {
+    img.avatar {
+      // margin-top: -7px
+    }
+
+    .site-title {
+      margin-top: 7px;
+    }
+  }
+
+  nav {
+    height: auto;
+
+    .separator {
+      display: none !important;
+    }
+
+    ul {
+      position: fixed;
+      left: 0;
+      top: 85px;
+      width: 100%;
+      overflow: hidden;
+
+      /* fade out, then shrink */
+      transition: opacity .25s 0s, font-size .25s 0s;
+      transition-delay: 0s;
+      border-bottom: 1px solid var(--gray100);
+
+      &.hide {
+        height: 0;
+        overflow: hidden;
+        font-size: 0;
+        margin: 0;
+        opacity: 0;
+        padding: 0;
+      }
+    }
+
+    li {
+      width: 100%;
+      height: auto;
+      text-align: center;
+      font-size: 1em;
+      position: relative;
+      background-color: var(--background);
+      backdrop-filter: brightness(0.98);
+
+      &:nth-of-type(4n) {
+        background-color: var(--background);
+      }
+
+      a {
+        width: 100%;
+        margin: 0;
+        display: block;
+        padding: 10px;
+
+        &.site_header_a_selected {
+          padding: 10px;
+        }
+      }
+
+      &.navbar_glass_icon {
+        margin: 0;
+      }
+
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{% for footer in site.data.icons %}
+    {% unless footer[1] == nil %}
+        {% assign brand = footer[0] %}
+        {% assign id = footer[1] %}
+        {% assign data = site.data.icons_builder[brand] %}
+        {% if data.icon == nil %}
+            {% assign icon = "fab fa-" | append: brand %}
+        {% else %}
+            {% assign icon = data.icon %}
+        {% endif %}
+        <li>
+            <a href="{{ data.pre | append: id | append: data.pos }}"
+               title="{{ site.data.language.str_follow_on }} {{ brand | remove: '-' | capitalize }}"
+               target="_blank"
+               rel="noopener"
+               id='social_icon_github_a'>
+               <div id="social_icon_github"></div>
+            </a>
+        </li>
+    {% endunless %}
+{% endfor %}
+
+{% if site.data.social.rss or site.theme_settings.rss %}
+<li>
+    <a feed.xml href="{{ site.data.social.feed.path | default: 'feed.xml' | relative_url }}"
+       title="{{ site.data.language.str_rss_follow | default: 'Follow RSS feed' }}"
+       target="_blank"
+       id='social_icon_rss_a'>
+       <div id="social_icon_rss"></div>
+    </a>
+</li>
+{% endif %}

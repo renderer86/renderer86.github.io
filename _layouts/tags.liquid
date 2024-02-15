@@ -1,0 +1,121 @@
+---
+layout: page
+---
+
+<style>
+  .tag-list > ul {
+    padding: 0;
+    margin: 0;
+  }
+  .tag-list {
+    padding-bottom: 3.75rem;
+  }
+  @media screen and (max-width: 2000px) {
+    .post-content {
+      
+    }
+  }
+  @media screen and (max-width: 1400px) {
+    .post-content {
+      
+    }
+  }
+  @media screen and (max-width: 768px) {
+    .post-content {
+      
+    }
+  }
+
+  .meta2 {
+    font-size: 1.125rem;
+    color: var(--gray300);
+  }
+  .site-footer {
+    margin-top: 4rem;
+  }
+  h3 {
+    scroll-margin-top: 8rem;
+  }
+</style>
+
+<div class="home">
+
+  <!-- cycles through posts to get tags -->
+  {% assign rawtags = "" %}
+  {% for post in site.posts %}
+    {% if post.show %}
+      {% if post.tags.size > 0 %}
+        {% assign post_tags = post.tags | join: '|' | append: '|' %}
+        {% assign rawtags = rawtags | append: post_tags %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+
+  <!-- cycles through portfolio collection to get tags -->
+  {% assign portfolio = site.portfolio | map: 'tags' | join: ',' | split: ',' | uniq %}
+  {% for tag in portfolio %}
+    {% assign portfolio_tags = tag | join: '|' | append: '|' %}
+    {% assign rawtags = rawtags | append: portfolio_tags %}
+  {% endfor %}
+
+  <!-- cycles through pages to get tags -->
+  {% for page in site.pages %}
+    {% if page.show %}
+      {% if page.tags.size > 0 %}
+        {% assign page_tags = page.tags | join: '|' | append: '|' %}
+        {% assign rawtags = rawtags | append: page_tags %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+
+  <!-- Displays the list of tags-->
+  {% include default/tags_list.liquid tags=rawtags %}
+
+  <hr>
+
+  <!-- Displays the posts and pages that contains the tag-->
+  <div class="posts">
+    {% for tag in tags %}
+      <h3 id="{{ tag | cgi_escape }}" class="tag-anchor">
+        <a href="#{{ tag | cgi_escape }}">{{ tag }}</a>
+      </h3>
+
+      <!-- Posts and collection for each tags -->
+      <div class="tag-posts">
+
+        <!-- Pages -->
+        {% for page in site.pages %}
+          {% if page.show %}
+            {% if page.tags contains tag %}
+              <h4 class="tag-title">
+                <a class="font_normal" href="{{ page.url | relative_url }}">
+                  <i class="far fa-sticky-note" aria-hidden="true"></i>
+                  {{ page.title }}
+                </a>
+                {% include blog/post_info.liquid date=page.date %}
+              </h4>
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+
+        <!-- Posts -->
+        {% for post in site.posts %}
+          {% if post.show %}
+            {% if post.tags contains tag %}
+              <h4 class="tag-title">
+                <span class="tag_img"></span>
+                <a href="{{ post.url | relative_url }}">
+                  {{ post.title }}
+                </a>
+
+                {% include blog/post_info.liquid date=post.date %}
+              </h4>
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+
+      </div>
+    {% endfor %}
+
+  </div>
+</div>

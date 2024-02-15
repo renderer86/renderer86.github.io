@@ -1,0 +1,169 @@
+---
+layout: default
+---
+<article class="main-container {% if page.feature-img or page.color or page.back_color %}feature-image{% endif %}">
+  <header id="main" style="">
+    <div class="title-padder">
+      {% if page.hide_title %}
+        <div class="feature-image-padding"></div>
+      {% else %}
+        <div class="post_category">{{ page.categories }}</div>
+        <h1 id="{{ page.title | cgi_escape }}" class="title">{{ page.title }}
+          {% if page.new == true %}
+            <span class="post-new-badge"></span>
+          {% endif %}
+        </h1>
+        {% assign _author2 = page.author2 %}
+        {% include blog/post_info.liquid author=page.author author2=_author2 date=page.date %}
+      {% endif %}
+    </div>
+  </header>
+
+  <section class="post-content">
+    {% if page.bootstrap %}
+      <div class="bootstrap-iso">
+      {% endif %}
+      {% if page.series >= 0 %}
+        {% assign series = site.data.series %}
+        {% for ser in series %}
+          {% if ser.id == page.series %}
+            <div class="series_div">
+              <ol>
+                {% for el in ser.list %}
+                  <li class="series_li">
+                    <a href="/ncresearch/{{el.permalink}}">{{ el.title }}</a>
+                  </li>
+                {% endfor %}
+              </ol>
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+      {{ content | replace: '-!', '<span class="sidenote-number"><small class="sidenote">' | replace: '!-', '</small></span>' | toc }}
+      {% if page.bootstrap %}
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- Tag list -->
+  {% capture tag_list %}
+    {{ page.tags | join: "|" }}{% endcapture %}
+  {% include default/tags_list.liquid tags=tag_list %}
+
+  <!-- Social media shares -->
+  {% include social/share_buttons.liquid %}
+
+  <!-- Move Top Btn -->
+  <div class='move_top_btn'></div>
+
+</article>
+
+<!-- Post navigation -->
+{% if site.post_navigation or site.theme_settings.post_navigation %}
+  {% include blog/post_nav.liquid %}
+{% endif %}
+
+<!--Utterances-->
+{% if site.comments.utterances.repo and site.comments.utterances.issue-term %}
+  {% include social/utterances.liquid %}
+{% endif %}
+
+<!-- Cusdis -->
+{% if site.comments.cusdis_app_id or site.cusdis_app_id %}
+  {% include social/cusdis.liquid %}{% endif %}
+
+<!-- Disqus -->
+{% if site.comments.disqus_shortname or site.theme_settings.disqus_shortname or site.disqus_shortname %}
+  {% include social/disqus.liquid %}{% endif %}
+
+<!-- To change color of links in the page -->
+<style>
+  header#main {
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+  }
+
+  {% if page.color %}
+    .post-content a {
+      color: {{ page.color }}
+       !important;
+    }
+    .tag-list a:not(:hover) {
+      color: {{ page.color }}
+       !important;
+    }
+    div#post-nav a {
+      color: {{ page.color }}
+       !important;
+    }
+    footer a {
+      color: {{ page.color }}
+       !important;
+    }
+    .site-header nav a:hover {
+      color: {{ page.color }}
+       !important;
+    }
+    a.button:hover {
+      background: {{ page.color }}
+       !important;
+      border: 1px solid{{ page.color }}!important;
+      color: white;
+      text-decoration: none;
+      filter: none;
+    }
+    header#main {
+      background-color: {{ page.back_color }}
+       !important;
+      background-image: url('{{ site.color_image | relative_url }}');
+    }
+  {% endif %}
+
+  {% if page.back_color %}
+    header#main {
+      background-color: {{ page.back_color }}
+       !important;
+    }
+  {% endif %}
+
+  {% if page.feature-img %}
+    header#main {
+      background-image: url('{{ page.feature-img | relative_url }}');
+    }
+  {% endif %}
+
+  .item {
+    width: 12rem;
+    height: 12rem;
+    background-size: 12rem;
+    background-repeat: no-repeat;
+    border-radius: 8px;
+    margin: 0 auto 5.5em;
+    filter: drop-shadow(4px 4px 4px rgba(51, 61, 75, 0.3));
+  }
+</style>
+
+<script>
+  let move_top_btn = document.getElementsByClassName("move_top_btn")[0];
+  move_top_btn.addEventListener('click', topFunction);
+
+// When the user scrolls down 20px from the top of the document, show the button
+  window.onscroll = function() {
+    scrollFunction()
+  };
+
+  function scrollFunction() {
+    if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+      move_top_btn.style.display = "block";
+    } else {
+      move_top_btn.style.display = "none";
+    }
+  }
+
+// When the user clicks on the button, scroll to the top of the document
+  function topFunction() {
+    document.body.scrollTop = 0; // For Safari
+    document.documentElement.scrollTop = 0; // For Chrome, Firefox, IE and Opera
+  }
+</script>

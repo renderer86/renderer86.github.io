@@ -1,0 +1,54 @@
+<header class="site-header{% if page.url != '/' %} site_header_wheeled{% endif %}">
+
+  <!-- Logo and title -->
+  <div class="branding">
+    {% if site.avatar %}
+      <a href="{{ '/' | relative_url }}">
+        <img
+          id="logo_blue"
+          alt="logo img"
+          class="avatar"
+          src="{{ site.avatar | relative_url }}" />
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Toggle menu -->
+  <nav class="clear">
+    <a
+      aria-label="pull"
+      id="pull"
+      class="toggle"
+      href="#">
+      <i class="fas fa-bars fa-lg"></i>
+    </a>
+
+    <!-- Menu -->
+    <ul class="hide">
+      {% assign name_page = "" %}
+
+      {% for page_ in site.pages %}
+        {% unless page_.title == null or page_.hide or name_page contains page_.title %}
+          <li class="separator">
+            |
+          </li>
+          <li class="{% if page_.icon %}navbar_glass_icon{% endif %}">
+            <a
+              class="clear{% if page.url == '/' %} main_page_a{% endif %}{% if page.title == page_.title %} site_header_a_selected{% elsif page.layout == 'post' and page_.title == 'Blogs' %} site_header_a_selected{% elsif page_.title == 'VARCO LLM' and page.title == 'VARCO LLM Details' %} site_header_a_selected{% endif %}"
+              aria-label="{{ page_.title }}"
+              title="{{ page_.title }}"
+              href="{{ page_.url | relative_url }}">
+              {% if page_.icon %}
+                <i class="fas {{ page_.icon }}" aria-hidden="true"></i>
+              {% else %}
+                {{ page_.title }}
+              {% endif %}
+            </a>
+          </li>
+        {% endunless %}
+        {% assign name_page = page_.title | append: name_page %}
+      {% endfor %}
+    </ul>
+
+  </nav>
+</header>

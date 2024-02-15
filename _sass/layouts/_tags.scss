@@ -1,0 +1,110 @@
+.tag-list {
+  width: 100%;
+  padding-top: 1rem;
+  // padding-bottom: $padding-x-small;
+
+  a.button {
+    margin: 0 1.125rem 1.5rem 0;
+    padding: 0.225rem 1.05rem 0.325rem 1.05rem;
+    // font-size: 1.5rem;
+    color: var(--gray600);
+    background-color: var(--gray50);
+    border: none;
+    border-radius: 0.5rem;
+    text-decoration: none;
+  }
+  a.button:hover {
+    color: var(--gray0);
+    background-color: var(--blue);
+    text-decoration: none !important;
+  }
+
+  p {
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+    // font-size: 1.5rem;
+  }
+
+  ul {
+    @extend %padding-post;
+    text-align: left;
+    list-style: none;
+
+    li, div {
+      display: inline;
+    }
+
+    div.meta {
+      margin-right: 0.5em;
+    }
+  }
+}
+
+.tag-anchor {
+  margin-top: 5rem;
+  margin-bottom: 2.5rem;
+
+  a {
+    color: var(--text);
+
+    &:hover {
+      text-decoration: none;
+    }
+  }
+}
+
+.tag-anchor > a {
+  font-size: 2rem;
+}
+
+.tag-posts {
+  display: inline-block;
+  width: 100%;
+
+  .tag-title {
+    margin-top: 0;
+    margin-bottom: 0.4rem;
+    display: flex;
+    align-items: center;
+
+    a {
+      font-size: 1.5rem;
+      font-weight: 500;
+      margin-right: 0.3rem;
+    }
+
+    a:hover {
+      text-decoration: none !important;
+      color: var(--blue500);
+    }
+
+    .tag_img {
+      display: inline-block;
+      background-image: url('/ncresearch/assets/img/renewal/ic_publications.png') !important;
+      width: 1.5rem;
+      height: 1.5625rem;
+      margin-right: 0.5rem;
+    }
+
+    .post-info {
+      // float: right;
+      padding-top: 0;
+      vertical-align: middle;
+      margin-left: 0.2rem;
+    }
+  }
+
+  .meta {
+    display: inline;
+    float: right;
+    font-size: 0.8em;
+    line-height: normal;
+  }
+
+  @media screen and (max-width: $sm-break) {
+    .meta {
+      display: none;
+    }
+  }
+}
