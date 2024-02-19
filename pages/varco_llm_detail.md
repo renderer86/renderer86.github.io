@@ -2,7 +2,7 @@
 layout: page
 title: VARCO LLM Details
 title2: VARCO LLM 모델 상세 정보
-permalink: /varco-llm-details/
+permalink: /aa/
 subtitle: ""
 page-type: main_page
 hide: true
