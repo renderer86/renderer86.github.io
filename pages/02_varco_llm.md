@@ -1,7 +1,7 @@
 ---
 layout: page
 title: VARCO LLM
-title2: 거대언어모델
+title2: title2
 permalink: /varco-llm/
 subtitle: "VARCO (Via AI, Realize your Creativity and Originality) LLM"
 page-type: main_page
