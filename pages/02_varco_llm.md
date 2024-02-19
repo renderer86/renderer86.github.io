@@ -125,7 +125,7 @@ page-type: main_page
 
 <div class="llm-div">
   <span class="llm-title">모델 공개 리스트</span>
-  <a class="blogs-link" href="https://ncsoft.github.io/ncresearch/varco-llm-details">자세히 보기</a>
+  <a class="blogs-link" href="https://renderer86.github.io/varco-llm-details">자세히 보기</a>
 </div>
 
 <h6>VARCO LLM 은 NC의 거대 언어모델입니다.</h6>
