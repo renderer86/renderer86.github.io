@@ -2,14 +2,14 @@
     <div id="categories">
         <div class="category-groups">
             <div class="news-title-group">
-                <span class="news-title">거대언어모델</span>
-                <a class="blogs-link" href="https://ncsoft.github.io/ncresearch/varco-llm/">더보기</a>
+                <span class="news-title">news=title</span>
+                <a class="blogs-link" href="https://besisi86.github.io/varco-llm/">더보기</a>
             </div>
             <div class="news-group">
                 {% assign news = site.data.news | sort: "date" | reverse %}
                 {% for _news in news limit:1 %}
                     <div class="news_div">
-                        <a href="https://ncsoft.github.io/ncresearch/varco-llm">
+                        <a href="https://besisi86.github.io/varco-llm">
                             <h3 class="news_title">
                                 {{ _news.title }}
                                 {% if _news.new == true %}
@@ -35,7 +35,7 @@
             </div>
             <div>
                 <span class="blogs-title">Blogs</span>
-                <a class="blogs-link" href="https://ncsoft.github.io/ncresearch/blogs/">더보기</a>
+                <a class="blogs-link" href="https://besisi86.github.io/blogs/">더보기</a>
             </div>
             <div class="category-group">
                 {% assign posts = site.posts | sort: "index" | reverse %}
@@ -74,7 +74,7 @@
             </div>
             <div class="publication-title-group">
                 <span class="publication-title">Publications</span>
-                <a class="publication-link" href="https://ncsoft.github.io/ncresearch/publications/">더보기</a>
+                <a class="publication-link" href="https://besisi86.github.io/publications/">더보기</a>
             </div>
             <div class="publication-group">
                 {% assign pubs = site.data.publications | sort: "year" | reverse %}
