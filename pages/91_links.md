@@ -3,7 +3,7 @@ layout: page
 title : Links
 title2 : Links
 permalink: /links/
-subtitle: "Graphics Research 관련 사이트"
+subtitle: "#Graphics Research #게임 #주목하는 개발자"
 h_color: var(--black)
 page-type: main_page
 ---
