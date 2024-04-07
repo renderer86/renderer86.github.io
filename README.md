@@ -1,1 +1,1 @@
-# [NC NLP TechBlog](https://ncsoft.github.io/ncresearch/)
+# [Besisi Research TechBlog](https://renderer86.github.io/)
