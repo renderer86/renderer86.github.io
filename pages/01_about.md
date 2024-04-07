@@ -26,6 +26,9 @@ page-type: main_page
         <dd class="about-item"><a class="about-link" href="#Game-engine">Game Engine</a></dd>
     </dl>
     <dl>
+        <dt class="about-item"><a class="about-link" href="#ai">AI</a></dt>
+    </dl>
+    <dl>
         <dt class="about-item"><a class="about-link" href="#ai-rd">주식</a></dt>
         <dd class="about-item"><a class="about-link" href="#price-value">가치평가</a></dd>
     </dl>
