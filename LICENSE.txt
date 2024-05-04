@@ -12,10 +12,14 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 ________________________________________
 
-Any questions about our licensed work can be sent to opensource@ncsoft.com.
+Any questions about our licensed work can be sent to renderer86@gmail.com.
 
 This software uses Open Source Software (OSS). You can find the link for the source code of these open source projects, along with applicable license information, below.
 
+NC Research
+https://ncsoft.github.io/ncresearch/
+Copyright (c)
+MIT License
 
 bootstrap
 https://github.com/twbs/bootstrap 
