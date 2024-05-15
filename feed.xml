@@ -1,0 +1,23 @@
+<rss version="2.0">
+<channel>
+    <title>Besisi Research</title>
+    <link>https://username.github.io</link>
+    <description>게임, 주식에 대한 리서치를 주로 합니다..</description>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 07 Oct 2024 00:00:01 GMT</lastBuildDate>
+
+    <item>
+        <title>최신 기술 뉴스</title>
+        <link>https://username.github.io/post1</link>
+        <description>이번 주 주목할 만한 최신 기술 뉴스를 살펴봅시다.</description>
+        <pubDate>Mon, 07 Oct 2024 00:00:00 GMT</pubDate>
+    </item>
+    <item>
+        <title>프로그래밍 팁</title>
+        <link>https://username.github.io/post2</link>
+        <description>효율적인 코딩을 위한 팁을 공유합니다.</description>
+        <pubDate>Sun, 06 Oct 2024 00:00:00 GMT</pubDate>
+    </item>
+    <!-- 여기에 더 많은 아이템을 추가할 수 있습니다. -->
+</channel>
+</rss>
