@@ -1,7 +1,7 @@
-- authors: "Authors"
-  title: "title"
-  conf: "conf"
-  year: 2023
-  abstract: "abstract"
-  tags: ["taga", "tagb", "tagc"]
+- authors: "최재혁"
+  title: "대구대학교 강의"
+  conf: "The 17th Conference of the European Chapter of the Association for Computational Linguistics(EACL). (2023)"
+  year: 2018
+  abstract: "대구대학교에서 강의한 내용"
+  tags: ["lecture", "Class"]
   id: 0
