@@ -2,8 +2,8 @@
   <defs>
     <style>
       .cls-1 {
-        font-size: 70.833px;
-        font-family: KaTeX_SansSerif;
+        font-size: 62.5px;
+        font-family: "Noto Sans KR";
       }
     </style>
   </defs>
