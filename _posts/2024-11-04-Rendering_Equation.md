@@ -7,7 +7,7 @@ categories: Rendering
 tags: [Rendering, UnrealEngine]
 excerpt: "Rendering Equation"
 back_color: "#ffffff"
-img_name: "fig_multiverse.png"
+img_name: "black.webp"
 toc: true
 show: true
 new: true
