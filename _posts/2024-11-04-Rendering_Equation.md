@@ -2,6 +2,7 @@
 layout: post
 title: "언리얼 엔진에서 렌더링 방정식 이해하기: 현실감을 더하는 기술적 접근"
 icon: paper
+permalink: d8c73243c492ed7b5f44b70936cfe4521669ad34
 categories: Rendering
 tags: [Rendering, UnrealEngine]
 excerpt: "Rendering Equation"
