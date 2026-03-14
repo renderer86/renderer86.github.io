@@ -4,7 +4,7 @@ title: "내가 게임을 만드는 이유"
 icon: blog
 author: renderer86
 permalink: game_was_a_small_society
-categories: Essay
+categories: Game
 tags: [game, relationship, life, game_design]
 excerpt: 게임은 나에게 작은 사회였다. 게임이 나에게 가르쳐 준 관계와 성장에 대한 이야기.
 back_color: "#ffffff"
@@ -12,7 +12,7 @@ img_name: "game_essay_hero.webp"
 toc: true
 show: true
 series: -1
-index: 0
+index: 1
 ---
 
 * 내가 게임을 만드는 이유
