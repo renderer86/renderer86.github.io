@@ -4,7 +4,11 @@
   // padding-bottom: $padding-x-small;
 
   a.button {
-    margin: 0 1.125rem 1.5rem 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    margin: 0;
     padding: 0.225rem 1.05rem 0.325rem 1.05rem;
     // font-size: 1.5rem;
     color: var(--gray600);
@@ -28,11 +32,16 @@
 
   ul {
     @extend %padding-post;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.125rem;
     text-align: left;
     list-style: none;
+    padding-left: 0;
+    margin: 0;
 
     li, div {
-      display: inline;
+      display: block;
     }
 
     div.meta {
