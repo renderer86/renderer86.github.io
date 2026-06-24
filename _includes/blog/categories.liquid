@@ -7,11 +7,8 @@
             </div>
             <div class="category-group">
                 {% assign posts = site.posts | sort: "index" | reverse %}
-                {% assign counter = 0 %}
                 {% for post in posts %}
-                {% if counter < 6 %}
                     {% if post.show %}
-                        {% assign counter=counter | plus:1 %} 
                         <div class="category-item">
                             {% if post.img_name %}
                             <div class="category-item-img">
@@ -37,7 +34,6 @@
                             {% endif %}
                         </div>
                     {% endif %}
-                {% endif %}
                 {% endfor %}
             </div>
             <div class="publication-title-group">

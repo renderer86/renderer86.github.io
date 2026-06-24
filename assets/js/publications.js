@@ -1,8 +1,7 @@
 let now_selected_filter = '*';
 let tech_object = {
-  ai: ["speech", "vision", "graphics", "reinforcement_learning", "ai_system"],
-  nlp: ["understanding", "dialogue", "translation", "search", "data"],
-  applied_ai: ["curation", "anomaly_detection", "sequence_modeling", "xai"],
+  type: ["ndc", "conference", "lecture"],
+  topic: ["gamedev", "graphics", "engine", "rendering"],
 };
 let tech_object_reverse;
 
@@ -142,9 +141,8 @@ function initEventListener() {
       checkbox_array[i].addEventListener("change", () => {
         // main to sub check
         switch (checkbox_array[i].id) {
-          case "ai":
-          case "nlp":
-          case "applied_ai":
+          case "type":
+          case "topic":
             for (
               let j = 0;
               j < tech_object[checkbox_array[i].id].length;

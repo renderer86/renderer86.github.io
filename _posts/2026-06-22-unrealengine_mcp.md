@@ -4,7 +4,7 @@ title: "Unreal Engine MCP: 클로드·챗지피티가 에디터를 직접 조작
 icon: paper
 permalink: unrealmcp
 categories: Tools
-tags: [UnrealEngine, MCP, AI, LLM, Automation]
+tags: [UnrealEngine, Tools, MCP, AI, LLM, Automation]
 excerpt: "MCP(Model Context Protocol)가 무엇인지, 그리고 Claude·ChatGPT 같은 AI가 어떻게 언리얼 에디터에 연결되어 액터를 스폰하고 블루프린트를 짜는지"
 back_color: "#ffffff"
 img_name: "unrealmcp.png"

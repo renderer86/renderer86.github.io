@@ -4,7 +4,7 @@ title: "UE5 MegaLights: 수천 개의 그림자 라이트를 고정 비용으로
 icon: paper
 permalink: megalights
 categories: Rendering
-tags: [Rendering, UnrealEngine, Lighting, Shadow]
+tags: [ComputerGraphics, Rendering, UnrealEngine, MegaLights, Lighting, Shadow, RayTracing]
 excerpt: "MegaLights"
 back_color: "#ffffff"
 img_name: "megalights.svg"

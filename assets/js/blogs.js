@@ -1,8 +1,8 @@
 let tech_object = {
-  'ai': ['speech', 'vision', 'graphics', 'reinforcement_learning', 'ai_system'],
-  'nlp': ['understanding', 'dialogue', 'translation', 'search', 'data'],
-  'applied_ai': ['curation', 'anomaly_detection', 'sequence_modeling', 'xai'],
-  'financial_ai': ["investment-strategy", "market-understanding", "investor-understanding", "mlops"],
+  'computergraphics': ['rendering', 'graphicsprogramming', 'raytracing', 'shadow', 'lighting', 'geometry'],
+  'unrealengine': ['nanite', 'virtualshadowmap', 'megalights', 'distancefield', 'lumen'],
+  'tools': ['mcp', 'ai', 'llm', 'automation'],
+  'game': ['gamedesign', 'essay'],
 };
 let tech_object_reverse;
 

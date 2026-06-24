@@ -3,6 +3,6 @@ layout: categories
 title: Blogs
 title2: Blogs
 permalink: /blogs/
-subtitle: "#렌더링 #게임 #주식"
+subtitle: "#Rendering #UnrealEngine #ComputerGraphics #Game"
 page-type: main_page
 ---
