@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1024" role="img" aria-label="Pencil sketch diagram of Lumen geometry, mesh cards, surface cache, and screen probe gather">
+  <defs>
+    <filter id="paper">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="3" seed="31"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.08"/>
+      </feComponentTransfer>
+    </filter>
+    <filter id="rough">
+      <feTurbulence type="fractalNoise" baseFrequency="0.032" numOctaves="3" seed="11" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.1"/>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4f3ee"/>
+      <stop offset="1" stop-color="#dcdbd4"/>
+    </linearGradient>
+    <linearGradient id="cardFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.78"/>
+      <stop offset="1" stop-color="#dfe8ec" stop-opacity="0.38"/>
+    </linearGradient>
+    <linearGradient id="atlasFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e0dfd8"/>
+    </linearGradient>
+    <radialGradient id="probeGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#dffaff" stop-opacity="0.85"/>
+      <stop offset="0.42" stop-color="#94dce8" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#94dce8" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="hatchA" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(28)">
+      <line x1="0" y1="0" x2="0" y2="12" stroke="#202020" stroke-width="1" opacity="0.13"/>
+    </pattern>
+    <pattern id="hatchB" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+      <line x1="0" y1="0" x2="0" y2="10" stroke="#202020" stroke-width="1" opacity="0.10"/>
+    </pattern>
+    <pattern id="atlasGrid" width="42" height="42" patternUnits="userSpaceOnUse">
+      <path d="M42 0H0V42" fill="none" stroke="#202020" stroke-width="1.1" opacity="0.28"/>
+      <path d="M21 0V42M0 21H42" fill="none" stroke="#202020" stroke-width="0.7" opacity="0.10"/>
+    </pattern>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0L10 4L0 8Z" fill="#202020"/>
+    </marker>
+  </defs>
+
+  <rect width="1536" height="1024" fill="#fbfaf6"/>
+  <rect width="1536" height="1024" filter="url(#paper)" opacity="0.82"/>
+
+  <g filter="url(#rough)" stroke="#202020" stroke-linecap="round" stroke-linejoin="round">
+    <text x="126" y="92" font-family="JetBrains Mono, Consolas, monospace" font-size="22" font-weight="700" fill="#202020" opacity="0.82">Geometry</text>
+    <text x="492" y="92" font-family="JetBrains Mono, Consolas, monospace" font-size="22" font-weight="700" fill="#202020" opacity="0.82">Mesh Cards</text>
+    <text x="820" y="92" font-family="JetBrains Mono, Consolas, monospace" font-size="22" font-weight="700" fill="#202020" opacity="0.82">Surface Cache</text>
+    <text x="1160" y="92" font-family="JetBrains Mono, Consolas, monospace" font-size="22" font-weight="700" fill="#202020" opacity="0.82">Screen Probe Gather</text>
+
+    <path d="M390 100C430 112 458 126 482 151" fill="none" stroke-width="2" marker-end="url(#arrow)" opacity="0.65"/>
+    <path d="M706 100C748 114 781 130 812 154" fill="none" stroke-width="2" marker-end="url(#arrow)" opacity="0.65"/>
+    <path d="M1050 100C1094 116 1128 132 1154 158" fill="none" stroke-width="2" marker-end="url(#arrow)" opacity="0.65"/>
+
+    <g id="geometry">
+      <path d="M92 645L319 527L563 642L338 787Z" fill="url(#floor)" stroke-width="2.2"/>
+      <path d="M92 645L319 527L563 642L338 787Z" fill="url(#hatchB)" opacity="0.65"/>
+      <path d="M147 618L386 731M204 588L443 699M262 559L501 669" fill="none" stroke-width="1" opacity="0.24"/>
+      <path d="M189 694L417 578M265 733L492 615M337 786L563 642" fill="none" stroke-width="1" opacity="0.24"/>
+
+      <path d="M162 439L285 386L286 578L164 636Z" fill="#ecebe5" stroke-width="2"/>
+      <path d="M285 386L396 438L396 618L286 578Z" fill="#deddd7" stroke-width="2"/>
+      <path d="M164 636L286 578L396 618L271 690Z" fill="#f5f4ee" stroke-width="2"/>
+      <path d="M190 471L260 440L260 550L190 583Z" fill="url(#hatchA)" stroke-width="1.2"/>
+      <path d="M307 426L372 456L372 555L307 529Z" fill="url(#hatchB)" stroke-width="1.2"/>
+
+      <path d="M370 497L473 546L473 669L370 617Z" fill="#e5e4dd" stroke-width="2"/>
+      <path d="M400 516L445 537L445 603L400 580Z" fill="url(#hatchA)" stroke-width="1.1"/>
+      <path d="M237 612L337 568L337 651L237 702Z" fill="#dfded8" stroke-width="2"/>
+      <path d="M262 599L313 577L313 632L262 657Z" fill="url(#hatchA)" stroke-width="1.1"/>
+      <path d="M121 659C173 606 221 585 286 579" fill="none" stroke-width="1.2" opacity="0.48"/>
+      <path d="M126 697C200 641 276 622 366 639" fill="none" stroke-width="1" opacity="0.35"/>
+    </g>
+
+    <g id="cards" opacity="0.95">
+      <path d="M500 287L616 237L617 355L501 409Z" fill="url(#cardFill)" stroke-width="2"/>
+      <path d="M616 237L728 286L728 402L617 355Z" fill="url(#cardFill)" stroke-width="2"/>
+      <path d="M470 504L582 455L582 574L470 628Z" fill="url(#cardFill)" stroke-width="2"/>
+      <path d="M640 505L762 557L762 676L640 624Z" fill="url(#cardFill)" stroke-width="2"/>
+      <path d="M554 685L700 742L700 850L554 790Z" fill="url(#cardFill)" stroke-width="2"/>
+      <path d="M500 287L617 355M616 237L501 409M470 504L582 574M640 505L762 676M554 685L700 850" fill="none" stroke-width="1" opacity="0.35"/>
+      <path d="M286 386C368 302 442 273 500 287" fill="none" stroke-width="1.5" stroke-dasharray="7 8" marker-end="url(#arrow)" opacity="0.7"/>
+      <path d="M396 438C481 406 553 407 616 237" fill="none" stroke-width="1.2" stroke-dasharray="6 8" opacity="0.45"/>
+      <path d="M337 568C407 530 438 512 470 504" fill="none" stroke-width="1.5" stroke-dasharray="7 8" marker-end="url(#arrow)" opacity="0.7"/>
+      <path d="M473 546C536 527 595 519 640 505" fill="none" stroke-width="1.5" stroke-dasharray="7 8" marker-end="url(#arrow)" opacity="0.7"/>
+      <path d="M271 690C385 704 471 703 554 685" fill="none" stroke-width="1.5" stroke-dasharray="7 8" marker-end="url(#arrow)" opacity="0.7"/>
+    </g>
+
+    <g id="cache">
+      <path d="M822 237L1066 302L1066 731L822 666Z" fill="url(#atlasFill)" stroke-width="2.4"/>
+      <path d="M822 237L1066 302L1066 731L822 666Z" fill="url(#atlasGrid)" opacity="0.82"/>
+      <path d="M850 278L936 300L936 392L850 370Z" fill="url(#hatchA)" stroke-width="1.3" opacity="0.82"/>
+      <path d="M962 310L1033 328L1033 417L962 399Z" fill="url(#hatchB)" stroke-width="1.3" opacity="0.8"/>
+      <path d="M850 423L950 449L950 542L850 516Z" fill="#f8f7f1" stroke-width="1.3" opacity="0.9"/>
+      <path d="M974 455L1036 471L1036 581L974 565Z" fill="url(#hatchA)" stroke-width="1.3" opacity="0.75"/>
+      <path d="M850 574L945 599L945 650L850 625Z" fill="#e7f4f6" stroke-width="1.3" opacity="0.7"/>
+      <path d="M970 607L1036 624L1036 691L970 674Z" fill="url(#hatchB)" stroke-width="1.3" opacity="0.78"/>
+      <path d="M728 402C774 422 806 447 836 482" fill="none" stroke-width="1.8" marker-end="url(#arrow)" opacity="0.68"/>
+      <path d="M762 676C790 648 805 627 822 606" fill="none" stroke-width="1.8" marker-end="url(#arrow)" opacity="0.68"/>
+      <path d="M700 742C748 728 785 714 822 686" fill="none" stroke-width="1.8" marker-end="url(#arrow)" opacity="0.68"/>
+    </g>
+
+    <g id="screen">
+      <path d="M1160 244L1456 320L1456 739L1160 662Z" fill="#f7f7f1" stroke-width="2.4"/>
+      <path d="M1160 244L1456 320L1456 739L1160 662Z" fill="url(#hatchB)" opacity="0.18"/>
+      <path d="M1208 270L1208 674M1262 284L1262 688M1316 298L1316 702M1370 312L1370 716M1424 326L1424 730" fill="none" stroke-width="1" opacity="0.25"/>
+      <path d="M1160 330L1456 407M1160 416L1456 493M1160 502L1456 579M1160 588L1456 665" fill="none" stroke-width="1" opacity="0.25"/>
+
+      <g fill="#202020">
+        <circle cx="1211" cy="340" r="7"/>
+        <circle cx="1318" cy="369" r="7"/>
+        <circle cx="1424" cy="397" r="7"/>
+        <circle cx="1264" cy="482" r="7"/>
+        <circle cx="1371" cy="510" r="7"/>
+        <circle cx="1211" cy="626" r="7"/>
+        <circle cx="1318" cy="655" r="7"/>
+      </g>
+      <g filter="url(#glow)" opacity="0.75">
+        <circle cx="1211" cy="340" r="33" fill="url(#probeGlow)"/>
+        <circle cx="1318" cy="369" r="33" fill="url(#probeGlow)"/>
+        <circle cx="1424" cy="397" r="33" fill="url(#probeGlow)"/>
+        <circle cx="1264" cy="482" r="33" fill="url(#probeGlow)"/>
+        <circle cx="1371" cy="510" r="33" fill="url(#probeGlow)"/>
+        <circle cx="1211" cy="626" r="33" fill="url(#probeGlow)"/>
+        <circle cx="1318" cy="655" r="33" fill="url(#probeGlow)"/>
+      </g>
+
+      <path d="M1211 340C1118 354 1048 382 1002 437" fill="none" stroke="#3e8ea0" stroke-width="1.9" opacity="0.72" marker-end="url(#arrow)"/>
+      <path d="M1318 369C1210 403 1118 452 1034 514" fill="none" stroke="#3e8ea0" stroke-width="1.9" opacity="0.72" marker-end="url(#arrow)"/>
+      <path d="M1424 397C1309 434 1191 513 1048 620" fill="none" stroke="#3e8ea0" stroke-width="1.9" opacity="0.72" marker-end="url(#arrow)"/>
+      <path d="M1264 482C1168 486 1098 496 1034 514" fill="none" stroke="#3e8ea0" stroke-width="1.6" opacity="0.65" marker-end="url(#arrow)"/>
+      <path d="M1371 510C1268 550 1183 596 1050 647" fill="none" stroke="#3e8ea0" stroke-width="1.6" opacity="0.65" marker-end="url(#arrow)"/>
+      <path d="M1211 626C1126 604 1065 593 1006 598" fill="none" stroke="#3e8ea0" stroke-width="1.6" opacity="0.65" marker-end="url(#arrow)"/>
+      <path d="M1318 655C1241 626 1162 606 1046 611" fill="none" stroke="#3e8ea0" stroke-width="1.6" opacity="0.65" marker-end="url(#arrow)"/>
+
+      <path d="M1066 514C1106 498 1135 490 1160 486" fill="none" stroke-width="1.8" marker-end="url(#arrow)" opacity="0.7"/>
+      <path d="M1066 624C1102 630 1131 641 1160 662" fill="none" stroke-width="1.8" marker-end="url(#arrow)" opacity="0.7"/>
+    </g>
+
+    <g opacity="0.55" fill="none">
+      <path d="M125 858C274 801 428 805 577 855" stroke-width="1.1"/>
+      <path d="M462 889C606 833 743 836 872 880" stroke-width="1.1"/>
+      <path d="M810 818C943 780 1054 788 1160 846" stroke-width="1.1"/>
+      <path d="M1126 808C1248 771 1365 784 1460 844" stroke-width="1.1"/>
+    </g>
+  </g>
+</svg>
