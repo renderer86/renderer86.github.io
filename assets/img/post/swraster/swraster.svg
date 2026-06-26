@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1536 1024" role="img" aria-label="Pencil sketch comparison of CPU rasterizer, hardware rasterizer, and Nanite software rasterizer">
+  <defs>
+    <filter id="paper">
+      <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="3" seed="41"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.08"/>
+      </feComponentTransfer>
+    </filter>
+    <filter id="rough">
+      <feTurbulence type="fractalNoise" baseFrequency="0.032" numOctaves="3" seed="17" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.05"/>
+    </filter>
+    <filter id="glow"><feGaussianBlur stdDeviation="5"/></filter>
+    <linearGradient id="paperPanel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e5e4dc"/>
+    </linearGradient>
+    <linearGradient id="gridShade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6f5ef"/>
+      <stop offset="1" stop-color="#dcdad1"/>
+    </linearGradient>
+    <radialGradient id="cyanGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#dffaff" stop-opacity="0.9"/>
+      <stop offset="0.42" stop-color="#91dbe7" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#91dbe7" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="hatchA" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(28)">
+      <line x1="0" y1="0" x2="0" y2="12" stroke="#202020" stroke-width="1" opacity="0.13"/>
+    </pattern>
+    <pattern id="hatchB" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+      <line x1="0" y1="0" x2="0" y2="9" stroke="#202020" stroke-width="1" opacity="0.10"/>
+    </pattern>
+    <pattern id="pixelGrid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#202020" stroke-width="1" opacity="0.28"/>
+    </pattern>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0L10 4L0 8Z" fill="#202020"/>
+    </marker>
+  </defs>
+
+  <rect width="1536" height="1024" fill="#fbfaf6"/>
+  <rect width="1536" height="1024" filter="url(#paper)" opacity="0.82"/>
+
+  <g filter="url(#rough)" stroke="#202020" stroke-linecap="round" stroke-linejoin="round">
+    <g>
+      <rect x="74" y="106" width="402" height="790" rx="18" fill="url(#paperPanel)" stroke-width="2.2"/>
+      <rect x="566" y="106" width="402" height="790" rx="18" fill="url(#paperPanel)" stroke-width="2.2"/>
+      <rect x="1058" y="106" width="402" height="790" rx="18" fill="url(#paperPanel)" stroke-width="2.2"/>
+    </g>
+
+    <text x="116" y="162" font-family="JetBrains Mono, Consolas, monospace" font-size="23" font-weight="700" fill="#202020">CPU Rasterizer</text>
+    <text x="610" y="162" font-family="JetBrains Mono, Consolas, monospace" font-size="23" font-weight="700" fill="#202020">HW Rasterizer</text>
+    <text x="1186" y="162" font-family="JetBrains Mono, Consolas, monospace" font-size="23" font-weight="700" fill="#202020">Nanite</text>
+
+    <g id="cpu">
+      <rect x="133" y="226" width="284" height="284" fill="url(#gridShade)" stroke-width="1.8"/>
+      <rect x="133" y="226" width="284" height="284" fill="url(#pixelGrid)" opacity="0.9"/>
+      <path d="M181 455L284 267L376 420Z" fill="#ffffff" stroke-width="3"/>
+      <path d="M165 262H394V471H165Z" fill="none" stroke-width="2.2" stroke-dasharray="10 8"/>
+      <path d="M165 262H394V471H165Z" fill="url(#hatchB)" opacity="0.45"/>
+      <g fill="#202020" opacity="0.72">
+        <circle cx="197" cy="421" r="4"/><circle cx="229" cy="389" r="4"/><circle cx="261" cy="357" r="4"/>
+        <circle cx="293" cy="325" r="4"/><circle cx="325" cy="389" r="4"/><circle cx="357" cy="421" r="4"/>
+        <circle cx="261" cy="421" r="4"/><circle cx="293" cy="389" r="4"/>
+      </g>
+      <path d="M275 538V594" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="146" y="615" width="258" height="64" rx="9" fill="#fff" stroke-width="1.6"/>
+      <text x="171" y="654" font-family="JetBrains Mono, Consolas, monospace" font-size="17" font-weight="700" fill="#202020">Bounding Box</text>
+      <path d="M275 697V753" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="146" y="773" width="258" height="64" rx="9" fill="#fff" stroke-width="1.6"/>
+      <text x="172" y="812" font-family="JetBrains Mono, Consolas, monospace" font-size="17" font-weight="700" fill="#202020">Pixel Test</text>
+    </g>
+
+    <g id="hw">
+      <rect x="625" y="226" width="284" height="284" fill="url(#gridShade)" stroke-width="1.8"/>
+      <rect x="625" y="226" width="284" height="284" fill="url(#pixelGrid)" opacity="0.9"/>
+      <path d="M671 454L758 277L874 414Z" fill="#ffffff" stroke-width="3"/>
+      <g>
+        <rect x="721" y="322" width="64" height="64" fill="#e7f4f6" stroke-width="2.4"/>
+        <path d="M753 322V386M721 354H785" fill="none" stroke-width="1.8"/>
+        <rect x="785" y="386" width="64" height="64" fill="#e7f4f6" stroke-width="2.4"/>
+        <path d="M817 386V450M785 418H849" fill="none" stroke-width="1.8"/>
+      </g>
+      <g filter="url(#glow)" opacity="0.7">
+        <circle cx="753" cy="354" r="48" fill="url(#cyanGlow)"/>
+        <circle cx="817" cy="418" r="48" fill="url(#cyanGlow)"/>
+      </g>
+      <path d="M767 538V594" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="638" y="615" width="258" height="64" rx="9" fill="#fff" stroke-width="1.6"/>
+      <text x="686" y="654" font-family="JetBrains Mono, Consolas, monospace" font-size="17" font-weight="700" fill="#202020">2x2 Quad</text>
+      <path d="M767 697V753" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="638" y="773" width="258" height="64" rx="9" fill="#fff" stroke-width="1.6"/>
+      <text x="673" y="812" font-family="JetBrains Mono, Consolas, monospace" font-size="17" font-weight="700" fill="#202020">Helper Lanes</text>
+    </g>
+
+    <g id="nanite">
+      <rect x="1117" y="226" width="284" height="284" fill="url(#gridShade)" stroke-width="1.8"/>
+      <rect x="1117" y="226" width="284" height="284" fill="url(#pixelGrid)" opacity="0.9"/>
+      <g fill="#fff" stroke-width="2.2">
+        <path d="M1154 318L1192 248L1238 320Z"/>
+        <path d="M1247 343L1296 259L1354 348Z"/>
+        <path d="M1180 444L1224 362L1273 449Z"/>
+        <path d="M1290 450L1342 373L1384 466Z"/>
+      </g>
+      <g fill="#202020" opacity="0.82">
+        <circle cx="1192" cy="248" r="5"/><circle cx="1296" cy="259" r="5"/><circle cx="1224" cy="362" r="5"/><circle cx="1342" cy="373" r="5"/>
+      </g>
+      <g filter="url(#glow)" opacity="0.65">
+        <circle cx="1192" cy="248" r="34" fill="url(#cyanGlow)"/>
+        <circle cx="1296" cy="259" r="34" fill="url(#cyanGlow)"/>
+        <circle cx="1224" cy="362" r="34" fill="url(#cyanGlow)"/>
+        <circle cx="1342" cy="373" r="34" fill="url(#cyanGlow)"/>
+      </g>
+      <path d="M1259 538V594" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="1130" y="615" width="258" height="64" rx="9" fill="#fff" stroke-width="1.6"/>
+      <text x="1188" y="654" font-family="JetBrains Mono, Consolas, monospace" font-size="17" font-weight="700" fill="#202020">Triangle</text>
+      <path d="M1259 697V753" fill="none" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="1130" y="773" width="258" height="64" rx="9" fill="#fff" stroke-width="1.6"/>
+      <text x="1208" y="812" font-family="JetBrains Mono, Consolas, monospace" font-size="17" font-weight="700" fill="#202020">Thread</text>
+    </g>
+
+    <g opacity="0.45" fill="none">
+      <path d="M102 918C224 874 354 875 458 918" stroke-width="1"/>
+      <path d="M590 918C724 874 844 875 944 918" stroke-width="1"/>
+      <path d="M1082 918C1216 874 1348 875 1440 918" stroke-width="1"/>
+    </g>
+  </g>
+</svg>
