@@ -554,7 +554,7 @@ index: 10
 
 <div class="callout callout-purple">
   <div class="callout-title">왜 "엣지 함수"라고 부르나</div>
-  <p>barycentric 좌표 하나하나는 사실 삼각형의 한 변(edge)에 대한 <strong>부호있는 거리 함수</strong>다. 변 위에서 0, 안쪽에서 양수, 바깥에서 음수가 되도록 만든 1차식 <code>E(x, y) = a·x + b·y + c</code> 이고, 이게 곧 barycentric 좌표에 비례한다. 그래서 "셋 다 ≥ 0"이 곧 "삼각형 안쪽"이 된다. 이 <strong>엣지 함수(edge function)</strong>가 1980년 Pineda가 정리한 이후 거의 모든 래스터라이저 — 하드웨어든 Nanite든 — 의 공통 심장이다. tinyrenderer는 이것을 <code>double</code> 행렬 연산으로 풀었을 뿐이다.</p>
+  <p>barycentric 좌표 하나하나는 사실 삼각형의 한 변(edge)에 대한 <strong>부호있는 거리 함수</strong>다. 변 위에서 0, 안쪽에서 양수, 바깥에서 음수가 되도록 만든 1차식 <code>E(x, y) = a·x + b·y + c</code> 이고, 이게 곧 barycentric 좌표에 비례한다. 그래서 "셋 다 ≥ 0"이 곧 "삼각형 안쪽"이 된다. 이 <strong>엣지 함수(edge function)</strong>는 1980년 Pineda가 정리한 이후 거의 모든 래스터라이저 — 하드웨어든 Nanite든 — 가 공통으로 쓰는 기본 판정 방식이다. tinyrenderer는 이것을 <code>double</code> 행렬 연산으로 풀었을 뿐이다.</p>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -591,7 +591,7 @@ index: 10
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-  바로 이 2×2 쿼드가 작은 삼각형에서 재앙이 된다. 삼각형이 쿼드 안의 한 픽셀만 덮어도, 하드웨어는 <strong>쿼드 네 픽셀 모두에 픽셀 셰이더를 실행</strong>한다. 덮이지 않은 나머지 픽셀들은 결과를 버리는 <strong>헬퍼 레인(helper lane)</strong>이 된다 — 미분 계산을 위해 셰이딩은 하되 출력은 안 하는 유령 픽셀이다.
+  바로 이 2×2 쿼드가 작은 삼각형에서 재앙이 된다. 삼각형이 쿼드 안의 한 픽셀만 덮어도, 하드웨어는 <strong>쿼드 네 픽셀 모두에 픽셀 셰이더를 실행</strong>한다. 덮이지 않은 나머지 픽셀들은 결과를 버리는 <strong>헬퍼 레인(helper lane)</strong>이 된다 — 미분 계산을 위해 셰이딩은 하되 출력은 안 하는 고스트 픽셀이다.
 </p>
 
 <div class="two-col">
