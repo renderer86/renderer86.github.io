@@ -7,7 +7,7 @@ categories: Rendering
 tags: [ComputerGraphics, Rendering, UnrealEngine, MegaLights, Lighting, Shadow, RayTracing]
 excerpt: "MegaLights"
 back_color: "#ffffff"
-img_name: "megalights.svg"
+img_name: "megalights.webp"
 toc: false
 show: true
 new: true

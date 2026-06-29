@@ -7,7 +7,7 @@ categories: Rendering
 tags: [ComputerGraphics, Rendering, UnrealEngine, GraphicsProgramming]
 excerpt: "Rendering Equation"
 back_color: "#ffffff"
-img_name: "black.webp"
+img_name: "rendering_equation.webp"
 toc: false
 show: true
 new: true

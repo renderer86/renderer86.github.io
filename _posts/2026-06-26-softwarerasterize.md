@@ -7,7 +7,7 @@ categories: Rendering
 tags: [Rendering, UnrealEngine, Nanite, Rasterization]
 excerpt: "삼각형을 픽셀로 바꾸는 래스터화의 기본 원리부터, 고정함수 하드웨어 래스터라이저가 작은 삼각형에서 왜 비효율적인지, 그리고 UE5 Nanite가 컴퓨트 셰이더로 소프트웨어 래스터라이저를 다시 만든 이유와 그 내부 구조까지"
 back_color: "#ffffff"
-img_name: "swraster.svg"
+img_name: "swraster.webp"
 toc: false
 show: true
 new: true
