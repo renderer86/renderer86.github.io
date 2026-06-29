@@ -17,7 +17,7 @@ index: 11
 ---
 
 >
-> \*\*이런 분이 읽으면 좋습니다!\*\*
+> **이런 분이 읽으면 좋습니다!**
 >
 > - "Vertex Shader → Pixel Shader" 까지는 알지만, 그 앞단(Input Assembler·Geometry Shader)이 왜 문제였는지 궁금한 분
 > - 컴퓨트 셰이더의 `Dispatch`와 `numthreads`가 그래픽스의 `Draw`와 뭐가 다른지 헷갈리는 분
@@ -25,11 +25,11 @@ index: 11
 > - Mesh Shader / Amplification(Task) Shader가 도대체 뭘 대체하는 건지 한 번에 정리하고 싶은 분
 > - UE5 Nanite가 실제로 mesh shader를 어떻게 호출하는지 코드로 보고 싶은 분
 >
-> \*\*이 글로 알 수 있는 내용\*\*
+> **이 글로 알 수 있는 내용**
 >
 > - 전통적인 래스터 파이프라인의 단계와 각 단계의 고정함수 병목
 > - Geometry Shader가 "쓰지 마라"는 평을 듣게 된 구조적 이유
-> - 컴퓨트 셰이더의 Thread Group / `Dispatch(x,y,z)` / `SV\_DispatchThreadID` 모델
+> - 컴퓨트 셰이더의 Thread Group / `Dispatch(x,y,z)` / `SV_DispatchThreadID` 모델
 > - GPU-driven 렌더링과 Indirect Draw(`ExecuteIndirect`)·GPU 컬링의 동기
 > - Mesh Shader 파이프라인 — meshlet, `SetMeshOutputCounts`, per-primitive 속성
 > - Amplification(Task) Shader의 `DispatchMesh`와 동적 확장/컬링
