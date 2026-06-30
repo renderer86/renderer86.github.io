@@ -616,7 +616,7 @@ index: 10
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-  Giesen은 삼각형 테두리에서 생기는 쿼드 낭비를 <em>"엣지를 위해 생성된 쿼드 셰이딩 작업의 25~75%가 버려진다"</em>고 정리한다. 삼각형이 작아질수록 "테두리"가 곧 삼각형 전체가 되므로, 픽셀 1개를 덮는 극단에서는 쿼드 효율이 25%(4개 중 1개) 수준까지 떨어진다. 게다가 Giesen은 <em>"0~1개의 픽셀만 만드는 작은 삼각형이라도, 트라이앵글 셋업과 최소 한 번의 coarse·fine 래스터 단계는 반드시 거쳐야 한다"</em>고 못박는다. <strong>고정 셋업 비용 + 쿼드 낭비 + 삼각형 처리율 상한</strong>, 이 세 가지가 작은 삼각형에서 하드웨어 래스터라이저를 무너뜨린다.
+  Giesen은 삼각형 테두리에서 생기는 쿼드 낭비를 <em>"엣지를 위해 생성된 쿼드 셰이딩 작업의 25~75%가 버려진다"</em>고 정리한다. 삼각형이 작아질수록 "테두리"가 곧 삼각형 전체가 되므로, 픽셀 1개를 덮는 극단에서는 쿼드 효율이 25%(4개 중 1개) 수준까지 떨어진다. 게다가 Giesen은 <em>"0~1개의 픽셀만 만드는 작은 삼각형이라도, 트라이앵글 셋업과 최소 한 번의 coarse·fine 래스터 단계는 반드시 거쳐야 한다"</em>고 못박는다. <strong>고정 셋업 비용 + 쿼드 낭비 + 삼각형 처리율 상한</strong>, 이 세 가지 때문에 작은 삼각형에서는 하드웨어 래스터라이저의 효율이 급격히 떨어진다.
 </p>
 
 <div class="callout callout-info">
@@ -629,13 +629,13 @@ index: 10
 <span class="section-eyebrow">3. Nanite는 왜 소프트웨어 래스터라이저를 다시 만들었나</span>
 
 <p style="color:var(--text2);line-height:1.85;margin-bottom:20px;">
-  Nanite의 목표는 화면 픽셀당 대략 삼각형 하나, 즉 <strong>마이크로폴리곤(micropolygon)</strong> 밀도로 지오메트리를 그리는 것이다. 실제로 Nanite는 엣지 길이를 약 1픽셀로 맞추는 것을 목표로 삼는다(<code>r.Nanite.MaxPixelsPerEdge = 1.0</code>). 그러면 화면을 채우는 삼각형의 절대 다수가 픽셀 크기다 — 정확히 하드웨어 래스터라이저가 가장 약한 영역이다.
+  Nanite의 목표는 화면 픽셀당 대략 삼각형 하나, 즉 <strong>마이크로폴리곤(micropolygon)</strong> 밀도로 지오메트리를 그리는 것이다. 실제로 Nanite는 엣지 길이를 약 1픽셀로 맞추는 것을 목표로 삼는다(<code>r.Nanite.MaxPixelsPerEdge = 1.0</code>). 그러면 화면을 채우는 삼각형의 절대 다수가 픽셀 크기가 된다 — 하드웨어 래스터라이저가 원래 강점을 발휘하던 큰 삼각형 워크로드와는 정반대의 조건이다.
 </p>
 
 <div class="callout callout-teal">
   <div class="callout-title">계보 — REYES와 Visibility Buffer</div>
   <p>픽셀보다 작은 삼각형을 그린다는 발상은 새롭지 않다. Pixar의 <strong>REYES</strong>(Cook·Carpenter·Catmull, SIGGRAPH 1987)는 모든 표면을 <em>마이크로폴리곤</em>으로 잘게 다이싱(약 ½픽셀, Nyquist 기준)해 렌더링했다. Nanite의 서브픽셀 삼각형 렌더링은 이 발상의 실시간 후예다.</p>
-  <p>또 하나의 기둥은 <strong>Visibility Buffer</strong>(Burns &amp; Hunt, JCGT 2013)다. 두꺼운 G-buffer에 색·법선·거칠기를 다 채우는 대신, <em>"샘플당 삼각형 인덱스와 인스턴스 ID만 — 4바이트"</em>를 저장하고, 머티리얼은 나중에 그 인덱스로 복원한다. Nanite의 래스터라이저는 바로 이 visibility buffer만 채운다.</p>
+  <p>여기에 <strong>Visibility Buffer</strong>(Burns &amp; Hunt, JCGT 2013) 아이디어가 결합된다. 두꺼운 G-buffer에 색·법선·거칠기를 다 채우는 대신, <em>"샘플당 삼각형 인덱스와 인스턴스 ID만 — 4바이트"</em>를 저장하고, 머티리얼은 나중에 그 인덱스로 복원한다. Nanite의 래스터라이저는 바로 이 visibility buffer만 채운다.</p>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
