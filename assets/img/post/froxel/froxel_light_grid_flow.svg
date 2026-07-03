@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Light Grid cell indirection flow</title>
+  <desc id="desc">One selected Light Grid cell points to a packed FCulledLightsGridHeader, which points to a range in CulledLightDataGrid. Each local light index loads FForwardLightData, and shading uses those payloads.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#101827"/>
+      <stop offset="1" stop-color="#070d19"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#38bdf8"/>
+    </marker>
+    <style>
+      .bg { fill: url(#bg); }
+      .panel { fill: #111827; stroke: #26364d; stroke-width: 2; }
+      .title { font: 800 28px Inter, Segoe UI, Arial, sans-serif; fill: #f8fafc; }
+      .subtitle { font: 500 15px Inter, Segoe UI, Arial, sans-serif; fill: #a8b4c7; }
+      .label { font: 750 16px Inter, Segoe UI, Arial, sans-serif; fill: #e5edf8; }
+      .small { font: 650 12px Inter, Segoe UI, Arial, sans-serif; fill: #9fb0c8; }
+      .mono { font: 650 13px Consolas, Menlo, monospace; fill: #dff7ff; }
+      .monoDim { font: 650 12px Consolas, Menlo, monospace; fill: #9fb0c8; }
+      .note { font: 650 13px Inter, Segoe UI, Arial, sans-serif; fill: #cbd5e1; }
+      .gridLine { stroke: #53647c; stroke-width: 1; }
+      .gridCell { fill: #172033; stroke: #334155; stroke-width: 1; }
+      .selected { fill: #0f3442; stroke: #22d3ee; stroke-width: 3; }
+      .selectedText { font: 800 13px Inter, Segoe UI, Arial, sans-serif; fill: #7dd3fc; }
+      .box { fill: #0f172a; stroke: #334155; stroke-width: 1.5; }
+      .boxHot { fill: #102d3c; stroke: #38bdf8; stroke-width: 2; }
+      .boxGold { fill: #302611; stroke: #f59e0b; stroke-width: 1.8; }
+      .row { fill: #0b1222; stroke: #2e3f59; stroke-width: 1; }
+      .rowHot { fill: #0b3442; stroke: #22d3ee; stroke-width: 2; }
+      .payload { fill: #1a2233; stroke: #64748b; stroke-width: 1; }
+      .payloadHot { fill: #2a210e; stroke: #f59e0b; stroke-width: 1.5; }
+      .arrow { stroke: #38bdf8; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .arrowDim { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .brace { stroke: #f59e0b; stroke-width: 2; fill: none; }
+      .pixel { fill: #0b1222; stroke: #334155; stroke-width: 1; }
+      .lit { fill: #f59e0b; opacity: 0.92; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="720" class="bg"/>
+  <text x="48" y="58" class="title">Light Grid cell does not store lights directly</text>
+  <text x="48" y="84" class="subtitle">A froxel cell stores a packed header. The header points to indices, and each index loads the real light payload.</text>
+
+  <!-- Dense grid panel -->
+  <rect x="44" y="116" width="324" height="392" rx="16" class="panel"/>
+  <text x="72" y="150" class="label">Dense Light Grid</text>
+  <text x="72" y="173" class="small">tileX x tileY x sliceZ</text>
+  <g transform="translate(74 206)">
+    <rect x="0" y="0" width="240" height="240" rx="8" fill="#0b1222" stroke="#334155"/>
+    <g>
+      <rect x="0" y="0" width="40" height="40" class="gridCell"/>
+      <rect x="40" y="0" width="40" height="40" class="gridCell"/>
+      <rect x="80" y="0" width="40" height="40" class="gridCell"/>
+      <rect x="120" y="0" width="40" height="40" class="gridCell"/>
+      <rect x="160" y="0" width="40" height="40" class="gridCell"/>
+      <rect x="200" y="0" width="40" height="40" class="gridCell"/>
+      <rect x="0" y="40" width="40" height="40" class="gridCell"/>
+      <rect x="40" y="40" width="40" height="40" class="gridCell"/>
+      <rect x="80" y="40" width="40" height="40" class="gridCell"/>
+      <rect x="120" y="40" width="40" height="40" class="gridCell"/>
+      <rect x="160" y="40" width="40" height="40" class="gridCell"/>
+      <rect x="200" y="40" width="40" height="40" class="gridCell"/>
+      <rect x="0" y="80" width="40" height="40" class="gridCell"/>
+      <rect x="40" y="80" width="40" height="40" class="gridCell"/>
+      <rect x="80" y="80" width="40" height="40" class="gridCell"/>
+      <rect x="120" y="80" width="40" height="40" class="selected"/>
+      <rect x="160" y="80" width="40" height="40" class="gridCell"/>
+      <rect x="200" y="80" width="40" height="40" class="gridCell"/>
+      <rect x="0" y="120" width="40" height="40" class="gridCell"/>
+      <rect x="40" y="120" width="40" height="40" class="gridCell"/>
+      <rect x="80" y="120" width="40" height="40" class="gridCell"/>
+      <rect x="120" y="120" width="40" height="40" class="gridCell"/>
+      <rect x="160" y="120" width="40" height="40" class="gridCell"/>
+      <rect x="200" y="120" width="40" height="40" class="gridCell"/>
+      <rect x="0" y="160" width="40" height="40" class="gridCell"/>
+      <rect x="40" y="160" width="40" height="40" class="gridCell"/>
+      <rect x="80" y="160" width="40" height="40" class="gridCell"/>
+      <rect x="120" y="160" width="40" height="40" class="gridCell"/>
+      <rect x="160" y="160" width="40" height="40" class="gridCell"/>
+      <rect x="200" y="160" width="40" height="40" class="gridCell"/>
+      <rect x="0" y="200" width="40" height="40" class="gridCell"/>
+      <rect x="40" y="200" width="40" height="40" class="gridCell"/>
+      <rect x="80" y="200" width="40" height="40" class="gridCell"/>
+      <rect x="120" y="200" width="40" height="40" class="gridCell"/>
+      <rect x="160" y="200" width="40" height="40" class="gridCell"/>
+      <rect x="200" y="200" width="40" height="40" class="gridCell"/>
+    </g>
+    <text x="130" y="105" class="selectedText">cell</text>
+  </g>
+  <rect x="76" y="465" width="230" height="28" rx="7" class="boxHot"/>
+  <text x="92" y="484" class="mono">GridIndex = ComputeCellIndex(...)</text>
+
+  <!-- Header panel -->
+  <rect x="420" y="132" width="292" height="184" rx="14" class="boxHot"/>
+  <text x="446" y="166" class="label">FCulledLightsGridHeader</text>
+  <text x="446" y="190" class="small">NumCulledLightsGrid[GridIndex * stride]</text>
+  <rect x="448" y="216" width="108" height="32" rx="6" class="rowHot"/>
+  <text x="460" y="237" class="mono">NumLights = 3</text>
+  <rect x="568" y="216" width="116" height="32" rx="6" class="rowHot"/>
+  <text x="580" y="237" class="mono">Start = 42</text>
+  <rect x="448" y="260" width="108" height="30" rx="6" class="row"/>
+  <text x="460" y="280" class="monoDim">Rect flag</text>
+  <rect x="568" y="260" width="116" height="30" rx="6" class="row"/>
+  <text x="580" y="280" class="monoDim">Textured flag</text>
+
+  <!-- CulledLightDataGrid -->
+  <rect x="420" y="386" width="292" height="226" rx="14" class="box"/>
+  <text x="446" y="420" class="label">CulledLightDataGrid</text>
+  <text x="446" y="444" class="small">flat 16/32-bit local light index buffer</text>
+  <g transform="translate(448 470)">
+    <rect x="0" y="0" width="236" height="124" rx="8" fill="#0b1222" stroke="#26364d"/>
+    <rect x="12" y="14" width="42" height="30" rx="5" class="row"/><text x="22" y="34" class="monoDim">40</text>
+    <rect x="60" y="14" width="42" height="30" rx="5" class="row"/><text x="70" y="34" class="monoDim">41</text>
+    <rect x="108" y="14" width="42" height="30" rx="5" class="rowHot"/><text x="118" y="34" class="mono">42</text>
+    <rect x="156" y="14" width="42" height="30" rx="5" class="rowHot"/><text x="166" y="34" class="mono">43</text>
+    <rect x="12" y="58" width="42" height="30" rx="5" class="rowHot"/><text x="22" y="78" class="mono">44</text>
+    <rect x="60" y="58" width="42" height="30" rx="5" class="row"/><text x="70" y="78" class="monoDim">45</text>
+    <text x="114" y="110" class="small">range: Start .. Start + NumLights - 1</text>
+  </g>
+  <path d="M556 466 C560 452, 588 452, 592 466" class="brace"/>
+
+  <!-- Payload table -->
+  <rect x="792" y="132" width="320" height="390" rx="14" class="boxGold"/>
+  <text x="820" y="166" class="label">FForwardLightData[]</text>
+  <text x="820" y="190" class="small">real light payload, one light = 6 x float4</text>
+  <g transform="translate(820 220)">
+    <rect x="0" y="0" width="264" height="54" rx="8" class="payloadHot"/>
+    <text x="14" y="22" class="mono">LocalLightIndex 7</text>
+    <text x="14" y="42" class="monoDim">position, color, direction, spot, rect, VSM id</text>
+    <rect x="0" y="70" width="264" height="54" rx="8" class="payloadHot"/>
+    <text x="14" y="92" class="mono">LocalLightIndex 19</text>
+    <text x="14" y="112" class="monoDim">position, color, direction, spot, rect, VSM id</text>
+    <rect x="0" y="140" width="264" height="54" rx="8" class="payloadHot"/>
+    <text x="14" y="162" class="mono">LocalLightIndex 31</text>
+    <text x="14" y="182" class="monoDim">position, color, direction, spot, rect, VSM id</text>
+    <rect x="0" y="225" width="264" height="78" rx="8" class="payload"/>
+    <text x="14" y="249" class="monoDim">GetForwardLightData(index, EyeIndex)</text>
+    <text x="14" y="272" class="monoDim">loads one payload per index</text>
+  </g>
+
+  <!-- Shading panel -->
+  <rect x="1152" y="206" width="84" height="240" rx="14" class="boxHot"/>
+  <text x="1173" y="236" class="label">Shade</text>
+  <g transform="translate(1174 270)">
+    <rect x="0" y="0" width="14" height="14" class="pixel"/>
+    <rect x="18" y="0" width="14" height="14" class="pixel lit"/>
+    <rect x="36" y="0" width="14" height="14" class="pixel"/>
+    <rect x="0" y="18" width="14" height="14" class="pixel lit"/>
+    <rect x="18" y="18" width="14" height="14" class="pixel lit"/>
+    <rect x="36" y="18" width="14" height="14" class="pixel"/>
+    <rect x="0" y="36" width="14" height="14" class="pixel"/>
+    <rect x="18" y="36" width="14" height="14" class="pixel lit"/>
+    <rect x="36" y="36" width="14" height="14" class="pixel"/>
+  </g>
+  <text x="1167" y="360" class="small">loop lights</text>
+  <text x="1167" y="381" class="small">accumulate</text>
+  <text x="1167" y="402" class="small">radiance</text>
+
+  <!-- Arrows -->
+  <path d="M316 326 C356 326, 374 224, 420 224" class="arrow"/>
+  <path d="M566 316 C566 344, 566 356, 566 386" class="arrow"/>
+  <path d="M684 532 C742 532, 746 274, 792 274" class="arrow"/>
+  <path d="M684 532 C748 532, 742 344, 792 344" class="arrow"/>
+  <path d="M684 532 C756 532, 738 414, 792 414" class="arrow"/>
+  <path d="M1112 326 C1128 326, 1134 326, 1152 326" class="arrow"/>
+
+  <!-- Bottom summary -->
+  <rect x="44" y="638" width="1192" height="46" rx="12" fill="#0b1222" stroke="#26364d"/>
+  <text x="70" y="667" class="note">Cell -> packed header -> index range -> LocalLightIndex -> FForwardLightData -> shading. The cell stores indirection metadata, not light data itself.</text>
+</svg>
