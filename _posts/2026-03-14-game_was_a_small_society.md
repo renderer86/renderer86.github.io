@@ -12,7 +12,6 @@ img_name: "game_essay_hero.webp"
 toc: true
 show: true
 series: -1
-index: 1
 ---
 나는 콘텐츠가 사람의 인생을 바꿀 수 있다고 믿는다.
 

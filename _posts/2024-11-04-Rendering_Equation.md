@@ -12,7 +12,6 @@ toc: false
 show: true
 new: true
 series: -1
-index: 0
 ---
 
 **이런 분이 읽으면 좋습니다!**

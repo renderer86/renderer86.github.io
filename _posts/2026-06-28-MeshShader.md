@@ -13,7 +13,6 @@ toc: false
 show: true
 new: true
 series: -1
-index: 11
 ---
 
 >
