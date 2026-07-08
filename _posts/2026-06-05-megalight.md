@@ -339,7 +339,7 @@ MegaLights는 UE 5.5에서 실험적으로 공개된 <strong>Stochastic Direct L
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-정리하면 기존 Deferred와 MegaLights가 택한 <strong>Stochastic Direct Lighting</strong>은 라이트를 다루는 방식 자체가 다르다. 핵심은 "전부 결정론적으로 계산"에서 "소수를 확률적으로 추정"으로 바뀐 것이다.
+정리하면 기존 Deferred와 MegaLights가 택한 <strong>Stochastic Direct Lighting</strong>은 라이트를 다루는 방식 자체가 다르다. 핵심은 "전부 결정론적으로 계산"하던 방식을 "소수를 확률적으로 추정"하는 방식으로 바꾼 데 있다.
 </p>
 
 <div class="data-table">
@@ -355,10 +355,10 @@ MegaLights는 UE 5.5에서 실험적으로 공개된 <strong>Stochastic Direct L
 </table>
 </div>
 
-<span class="section-eyebrow">02 — 핵심 아이디어</span>
+<span class="section-eyebrow">02 — 핵심</span>
 </div>
 
-# 핵심 아이디어: 고정 개수의 광선
+# 핵심: 고정 개수의 광선
 
 <div class="ml-post">
 <p style="color:var(--text2);line-height:1.85;">
@@ -680,7 +680,7 @@ LightTargetPDF.Weight = <span class="fn">log2</span>(Lum + <span class="num">1.0
 
 <div class="ml-post">
 <p style="color:var(--text2);line-height:1.85;">
-불투명 표면뿐 아니라 <strong>Volumetric Fog</strong>(카메라 정렬 froxel 그리드)와 <strong>Translucency Lighting</strong>(카메라 주변 월드 공간 복셀 그리드, 복셀당 2밴드 SH)도 같은 철학으로 처리된다. 둘 다 "Sampling → Tracing → Shading → Visible List" 파이프라인을 복셀 단위로 돈다.
+불투명 표면뿐 아니라 <strong>Volumetric Fog</strong>(카메라 정렬 froxel 그리드)와 <strong>Translucency Lighting</strong>(카메라 주변 월드 공간 복셀 그리드, 복셀당 2밴드 SH)도 같은 방식으로 처리된다. 둘 다 "Sampling → Tracing → Shading → Visible List" 파이프라인을 복셀 단위로 돈다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">

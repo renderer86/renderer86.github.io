@@ -422,7 +422,7 @@ UE4 시절엔 이걸 쓰려면 <strong>개발자가 직접</strong> compute fenc
 
 <div class="callout callout-info">
 <div class="callout-title">한 문장 요약</div>
-<p>async compute는 GPU가 <strong>놀고 있는 실행 유닛</strong>을 다른 큐의 일로 메우는 것이다. UE5 RDG는 그래프에서 <strong>cross-pipeline 의존성</strong>을 읽어 fork/join 펜스를 자동으로 삽입한다 — 그래서 손으로 안 짜도 된다. 다만 두 큐가 <strong>같은 물리 자원(레지스터·캐시·대역폭)</strong>을 나눠 쓰므로, 켠다고 GPU가 공짜로 2배가 되진 않는다. 보통 1~2ms.</p>
+<p>async compute는 GPU가 <strong>놀고 있는 실행 유닛</strong>을 다른 큐의 일로 메우는 기술이다. UE5 RDG는 그래프에서 <strong>cross-pipeline 의존성</strong>을 읽어 fork/join 펜스를 자동으로 삽입한다 — 그래서 손으로 안 짜도 된다. 다만 두 큐가 <strong>같은 물리 자원(레지스터·캐시·대역폭)</strong>을 나눠 쓰므로, 켠다고 GPU가 공짜로 2배가 되진 않는다. 보통 1~2ms.</p>
 </div>
 
 <span class="section-eyebrow">01 — async compute란</span>
@@ -445,7 +445,7 @@ UE4 시절엔 이걸 쓰려면 <strong>개발자가 직접</strong> compute fenc
 <div class="card teal">
 <div class="card-label">COMPUTE</div>
 <div class="card-title">컴퓨트 큐 (async)</div>
-<div class="card-desc">compute shader dispatch와 로컬 메모리 연산 전용. graphics 큐와 <strong>병렬로</strong> 스케줄된다. 여기에 일을 넣는 게 곧 "async compute".</div>
+<div class="card-desc">compute shader dispatch와 로컬 메모리 연산 전용. graphics 큐와 <strong>병렬로</strong> 스케줄된다. 여기에 일을 넣는 것이 "async compute"다.</div>
 </div>
 <div class="card gold">
 <div class="card-label">COPY / DMA</div>
@@ -691,7 +691,7 @@ AsyncComputePass->bAsyncComputeEnd = <span class="num">1</span>;
 GraphicsJoinPass->bGraphicsJoin = <span class="num">1</span>;</div>
 
 <p class="body">
-펜스 자체는 RHI 트랜지션으로 만들어진다. <strong>어느 파이프에서 시작해 어느 파이프에서 끝나는지</strong>를 함께 넣는다 — graphics→async 펜스는 <code>(Graphics, AsyncCompute)</code>, async→graphics 펜스는 <code>(AsyncCompute, Graphics)</code>. 실행 시점에 <code>RHICmdList.BeginTransitions()</code>로 제출된다.
+펜스 자체는 RHI 트랜지션으로 만들어진다. <strong>어느 파이프에서 시작해 어느 파이프에서 끝나는지</strong>를 함께 넣는다 — graphics→async 펜스는 <code>(Graphics, AsyncCompute)</code>, async→graphics 펜스는 <code>(AsyncCompute, Graphics)</code>. 실행 시점에는 <code>RHICmdList.BeginTransitions()</code>로 제출한다.
 </p>
 
 <div class="code-block"><span class="code-lang">RenderGraphPass.cpp — 펜스 생성</span><span class="cm">// fork 지점의 epilogue 배리어: 현재 파이프 → AsyncCompute 로 건너가는 펜스</span>
@@ -836,7 +836,7 @@ cvar이 1이어도 항상 async가 도는 건 아니다. RDG는 다음을 모두
 <div class="card teal">
 <div class="card-label">정확함</div>
 <div class="card-title">레이스가 원천 차단</div>
-<div class="card-desc">fork/join이 그래프의 생산자/소비자에서 기계적으로 나오니, 사람이 펜스를 빠뜨리는 버그가 없다. 의존이 바뀌면 다음 프레임에 다시 계산된다.</div>
+<div class="card-desc">fork/join이 그래프의 생산자/소비자 관계에서 기계적으로 나오니, 사람이 펜스를 빠뜨리는 버그가 없다. 의존이 바뀌면 다음 프레임에 다시 계산된다.</div>
 </div>
 <div class="card blue">
 <div class="card-label">최적 배치</div>
@@ -970,7 +970,7 @@ cvar이 1이어도 항상 async가 도는 건 아니다. RDG는 다음을 모두
 
 <div class="step-block s2">
 <h4>3. UE5에서는 RDG가 fork/join을 자동으로 한다</h4>
-<p><code>ERDGPassFlags::AsyncCompute</code> 한 줄 → RDG가 cross-pipeline 생산자/소비자에서 <strong>가장 늦은 fork·가장 이른 join</strong>을 계산해 펜스를 삽입. UE4의 수동 <code>FComputeFenceRHIRef</code> 작업이 통째로 사라졌다. <code>r.RDG.AsyncCompute</code> 0/1/2로 전역 정책을, 서브시스템 cvar로 패스별 on/off를 제어한다.</p>
+<p><code>ERDGPassFlags::AsyncCompute</code> 한 줄 → RDG가 cross-pipeline 생산자/소비자 관계에서 <strong>가장 늦은 fork·가장 이른 join</strong>을 계산해 펜스를 삽입. UE4의 수동 <code>FComputeFenceRHIRef</code> 작업이 통째로 사라졌다. <code>r.RDG.AsyncCompute</code> 0/1/2로 전역 정책을, 서브시스템 cvar로 패스별 on/off를 제어한다.</p>
 </div>
 
 <div class="step-block s1">

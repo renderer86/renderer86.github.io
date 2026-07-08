@@ -665,7 +665,7 @@ Mesh Shader 앞에 <strong>선택적으로</strong> 붙는 단계가 Amplificati
 
 <div class="ms-post">
 <p>
-서두에서 말한 <strong>"안 보일 정점을 변환 전에 버린다"</strong>가 실제로 일어나는 곳이 바로 이 amplification shader다. 핵심 아이디어: <strong>meshlet 단위로 절두체·후면 검사를 먼저 하고, 통과한 meshlet만 mesh 그룹으로 띄운다.</strong> 탈락한 meshlet은 mesh shader가 아예 실행되지 않으니, 그 정점들은 <strong>변환조차 되지 않는다.</strong>
+서두에서 말한 <strong>"안 보일 정점을 변환 전에 버린다"</strong>가 실제로 일어나는 곳이 바로 이 amplification shader다. 핵심은 <strong>meshlet 단위로 절두체·후면 검사를 먼저 하고, 통과한 meshlet만 mesh 그룹으로 띄운다</strong>는 점이다. 탈락한 meshlet은 mesh shader가 아예 실행되지 않으니, 그 정점들은 <strong>변환조차 되지 않는다.</strong>
 </p>
 
 <div class="code-block"><span class="code-lang">HLSL — Amplification: meshlet 컬링 + 스트림 압축</span><span class="kw">struct</span> Payload { <span class="ty">uint</span> MeshletIndices\[<span class="num">32</span>]; };  <span class="cm">// 살아남은 meshlet 인덱스</span>
@@ -879,7 +879,7 @@ Nanite가 mesh shader를 쓰려면 <strong>Mesh Shader Tier1</strong> 지원이 
 <div class="step-block s5">
 <h4>그리고 다음은 Work Graphs</h4>
 <p>2000년대에는 수천 개의 Draw Call만으로도 대부분의 게임을 표현할 수 있었다. 하지만 장면이 점점 복잡해지면서 CPU가 모든 렌더링 명령을 생성하는 방식은 한계에 부딪혔고, GPU는 단순히 삼각형을 그리는 장치를 넘어 스스로 컬링하고, 작업을 생성하며, 렌더링을 조직하는 <strong>GPU-driven</strong> 방향으로 진화하기 시작했다.</p>
-<p>Mesh Shader 역시 이러한 흐름 위에 있는 기술이다. 단순히 Vertex Shader나 Geometry Shader를 대체하는 새로운 API가 아니라, GPU의 지오메트리 프론트엔드까지 프로그래머블하게 만들어 개발자에게 더 많은 제어권을 넘겨준 변화라고 볼 수 있다.</p>
+<p>Mesh Shader 역시 같은 흐름에 놓인 기술이다. 단순히 Vertex Shader나 Geometry Shader를 대체하는 새로운 API가 아니라, GPU의 지오메트리 프론트엔드까지 프로그래머블하게 만들어 개발자에게 더 많은 제어권을 넘겨준 변화라고 볼 수 있다.</p>
 <p>앞으로의 GPU 역시 단순히 삼각형을 그리는 장치가 아니라, 데이터를 해석하고 작업을 생성하며, 렌더링 자체를 스스로 조직하는 방향으로 계속 진화해 갈 가능성이 크다. 그 다음 흐름은 <a href="https://developer.nvidia.com/blog/advancing-gpu-driven-rendering-with-work-graphs-in-direct3d-12/">Work Graphs</a>다.</p>
 </div>
 
