@@ -717,7 +717,7 @@ Path Tracer는 오프라인 지향(MRQ 렌더 등)이라 요구가 다르다 —
 <span class="fn">RegisterSpatialDenoiser</span>(MakeUnique&lt;FMyDenoiser&gt;(), TEXT(<span class="str">"MyName"</span>));  <span class="cm">// 플러그인이 StartupModule에서 등록</span></div>
 
 <p style="color:var(--text2);line-height:1.85;">
-엔진에 동봉된 플러그인이 넷이다. <strong>NFOR</strong>(<code>Engine/Plugins/Experimental/NFORDenoise</code>, 기본 활성)은 오프라인 디노이징 연구의 고전인 Bitterli et al.의 Nonlinearly Weighted First-Order Regression을 구현한 시공간 디노이저로, albedo/normal/(옵션)depth를 feature로 radiance를 회귀한다 — <code>NeedVarianceTexture()</code>가 true라서 variance 텍스처가 필수다. <strong>OIDN</strong>(2.3.1 동봉, 기본 비활성)은 07장의 그 CNN 디노이저가 spatial 전용(<code>IPathTracingDenoiser</code>)으로 등록되고, <strong>OptiX</strong>는 시공간형으로 CUDA 커널과 함께 들어온다. 가장 최신인 <strong>NNEDenoiser</strong>는 UE의 Neural Network Engine 런타임으로 ONNX 모델을 돌리는데, 동봉 모델이 <strong>OIDN 2.3.0 가중치를 ONNX로 변환한 것</strong>이다(<code>NNE_oidn2-3-0_rt_hdr_alb_nrm...uasset</code>) — 서드파티 DLL 없이 엔진 추론 스택으로 ML 디노이징을 돌리는 방향성이 읽힌다.
+엔진에 추가되어 있는 플러그인이 넷이다. <strong>NFOR</strong>(<code>Engine/Plugins/Experimental/NFORDenoise</code>, 기본 활성)은 오프라인 디노이징 연구의 고전인 Bitterli et al.의 Nonlinearly Weighted First-Order Regression을 구현한 시공간 디노이저로, albedo/normal/(옵션)depth를 feature로 radiance를 회귀한다 — <code>NeedVarianceTexture()</code>가 true라서 variance 텍스처가 필수다. <strong>OIDN</strong>(2.3.1 동봉, 기본 비활성)은 07장의 그 CNN 디노이저가 spatial 전용(<code>IPathTracingDenoiser</code>)으로 등록되고, <strong>OptiX</strong>는 시공간형으로 CUDA 커널과 함께 들어온다. 가장 최신인 <strong>NNEDenoiser</strong>는 UE의 Neural Network Engine 런타임으로 ONNX 모델을 돌리는데, 동봉 모델이 <strong>OIDN 2.3.0 가중치를 ONNX로 변환한 것</strong>이다(<code>NNE_oidn2-3-0_rt_hdr_alb_nrm...uasset</code>) — 서드파티 DLL 없이 엔진 추론 스택으로 ML 디노이징을 돌리는 방향성이 읽힌다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
