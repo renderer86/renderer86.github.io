@@ -7,7 +7,7 @@ categories: Rendering
 tags: [ComputerGraphics, Rendering, UnrealEngine, VolumetricFog, Froxel, BeerLambert, HenyeyGreenstein, MegaLights, Scattering]
 excerpt: "Volumetric Fog는 '안개 낀 공기 그 자체가 빛을 받는' 효과다. UE5.8은 이것을 뷰 프러스텀에 정렬된 froxel 그리드 위에서 네 장의 3D 텍스처(VBufferA/B → LightScattering → IntegratedLightScattering)로 푼다. 이 글은 높이안개 밀도가 산란/소광 계수로 변환되는 MaterialSetupCS부터, 볼륨 머티리얼을 슬라이스별로 래스터화하는 GS 복셀화, Henyey-Greenstein 위상 함수와 방향광 CSM/VSM/클라우드 그림자 조합, 그림자 있는 로컬 라이트의 별도 주입 패스, Halton 지터와 conservative depth 기반 temporal reprojection, 그리고 Frostbite에서 온 energy-conserving Beer-Lambert 적분까지 — UE 5.8 소스를 코드로 끝까지 추적한다. froxel 글에서 약식으로 지나간 Volumetric Fog의 전체 파이프라인을 완전히 펼친 글이다."
 back_color: "#ffffff"
-img_name: "volumetricfog.png"
+img_name: "volumetricfog-white.webp"
 toc: false
 show: true
 new: true
