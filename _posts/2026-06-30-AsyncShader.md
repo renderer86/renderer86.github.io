@@ -8,7 +8,7 @@ categories: Rendering
 tags: [Rendering, UnrealEngine, AsyncCompute, RDG, GPU]
 excerpt: "async compute가 GPU의 노는 ALU를 어떻게 메우는지, occupancy와 VGPR/SGPR이 그 한계를 어떻게 정하는지, UE4에서 손으로 fence를 걸던 일을 UE5 RDG가 fork/join으로 어떻게 자동화했는지, 그리고 왜 async를 켜도 GPU 시간이 1~2ms밖에 안 줄어드는지를 UE5 소스를 따라가며 분석한다."
 back_color: "#ffffff"
-img_name: "asynccompute.webp"
+img_name: "asynccompute-core-sketch.webp"
 toc: false
 show: true
 new: true
