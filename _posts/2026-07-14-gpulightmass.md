@@ -37,6 +37,7 @@ index: 22
 <br>
 
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
 
 <style>
 .gplm-post {
@@ -120,6 +121,18 @@ index: 22
 .gplm-post .formula-label { color: var(--accent); font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; }
 .gplm-post .formula-label.formula-label-next { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
 .gplm-post .formula-note { margin-top: 8px; color: var(--text3); font-family: inherit; font-size: 12px; text-align: center; line-height: 1.6; }
+.gplm-post .eq-anno-wrap { background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; padding: 28px 26px 16px; margin: 18px 0 28px; overflow-x: auto; }
+.gplm-post .eq-anno { display: flex; align-items: flex-start; gap: 10px; min-width: max-content; font-family: 'STIX Two Math', 'Cambria Math', Georgia, serif; font-size: 19px; color: var(--text); padding: 0 4px; }
+.gplm-post .eq-anno .op { padding-top: 3px; color: var(--text2); flex-shrink: 0; }
+.gplm-post .eq-anno .term { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.gplm-post .eq-anno .t-formula { white-space: nowrap; padding: 0 3px; }
+.gplm-post .eq-anno .t-line { width: 100%; height: 9px; margin-top: 4px; display: block; }
+.gplm-post .eq-anno .t-label { font-family: 'Nanum Pen Script', cursive; font-size: 18px; line-height: 1.2; margin-top: 3px; text-align: center; white-space: nowrap; }
+.gplm-post .eq-anno-wrap .formula-label { margin-bottom: 14px; }
+.gplm-post .eq-anno .frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; font-size: 0.9em; vertical-align: middle; }
+.gplm-post .eq-anno .frac .fr-t { padding: 0 5px 1px; border-bottom: 1.3px solid var(--text); }
+.gplm-post .eq-anno .frac .fr-b { padding: 1px 5px 0; }
+.gplm-post .eq-anno-wrap .formula-note { margin-top: 14px; }
 .gplm-post .formula-breakdown { text-align: left; }
 .gplm-post .formula-breakdown div + div { margin-top: 3px; }
 .gplm-post .formula-breakdown strong { color: var(--text2); }
@@ -201,7 +214,7 @@ index: 22
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-이름 때문에 레거시 <strong>CPU Lightmass</strong>의 GPU 포팅으로 오해하기 쉽지만, 솔버 자체가 다르다. CPU Lightmass는 포톤 매핑 + Irradiance Caching 계열이고, GPU Lightmass 플러그인 어디에도 포톤은 없다. <code>LightmapPathTracing.usf</code> 셰이더가 엔진의 레퍼런스 패스 트레이서(<code>Engine/Shaders/Private/PathTracing/</code>)의 재질 평가·광원 샘플링 라이브러리를 그대로 끌어다 쓰는, 무비 렌더러와 같은 계열의 <strong>path tracer</strong>다. Frostbite의 라이트맵 베이커 Flux(GDC 2018)도 똑같은 방식을 택했다.
+이름 때문에 레거시 <strong>CPU Lightmass</strong>의 GPU 포팅으로 오해하기 쉽지만, <strong>솔버(solver)</strong> — 렌더링 방정식의 적분을 실제로 계산해내는 알고리즘 — 자체가 다르다. 입력(씬·라이트)과 출력(라이트맵)은 같아도 푸는 방법이 다른 것이다. CPU Lightmass는 <strong>포톤 매핑</strong> 계열이다: 먼저 광원에서 수많은 "포톤"(빛 입자)을 씬에 쏘아 표면에 쌓아두고, 그다음 각 텍셀이 주변에 쌓인 포톤 밀도를 수집해 간접광을 추정한다 — 뿌리고 수집하는 2단계 방식이라 결과가 포톤 개수와 수집 반경에 의존하고, 오차가 노이즈가 아닌 "번짐"으로 나타나는 편향된 방법이다. GPU Lightmass는 방향이 반대다 — <strong>텍셀에서 출발한 경로가 빛이 온 길을 거꾸로 되짚어 광원까지 간다.</strong> 포톤맵 같은 중간 자료구조도 없어서 플러그인 어디에도 포톤은 없고, <code>LightmapPathTracing.usf</code> 셰이더가 엔진의 레퍼런스 패스 트레이서(<code>Engine/Shaders/Private/PathTracing/</code>)의 재질 평가·광원 샘플링 라이브러리를 그대로 끌어다 쓰는, 무비 렌더러와 같은 계열의 <strong>path tracer</strong>다. Frostbite의 라이트맵 베이커 Flux(GDC 2018)도 똑같은 방식을 택했다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -223,65 +236,189 @@ index: 22
 출발점은 언제나 카지야(1986)의 렌더링 방정식이다. 표면 위 한 점 x에서 방향 ω<sub>o</sub>로 나가는 빛은, 스스로 내는 빛과 사방에서 들어온 빛을 재질이 되돌려 보내는 양의 합이다.
 </p>
 
-<div class="formula">
-$$
-L_o(x,\omega_o)
-= L_e(x,\omega_o)
-+ \int_{\Omega^+(\mathbf n)}
-f_r(x,\omega_i,\omega_o)\,
-L_i(x,\omega_i)\,
-(\mathbf n\!\cdot\!\omega_i)\,
-\mathrm d\omega_i
-$$
+<div class="eq-anno-wrap">
+<div class="eq-anno">
+<span class="term">
+<span class="t-formula"><i>L</i><sub>o</sub>(<i>x</i>, <i>ω</i><sub>o</sub>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5.5 Q 26 2, 52 5 T 97 4" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b45309;">나가는 빛<br>= 구하려는 값</span>
+</span>
+<span class="op">=</span>
+<span class="term">
+<span class="t-formula"><i>L</i><sub>e</sub>(<i>x</i>, <i>ω</i><sub>o</sub>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4 Q 30 6.5, 55 3.5 T 97 5" fill="none" stroke="#d6304a" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#d6304a;">자발광<br>(스스로 내는 빛, 없으면 0)</span>
+</span>
+<span class="op">+</span>
+<span class="term">
+<span class="t-formula"><span style="font-size:1.4em;">∫</span><sub>Ω⁺(<b>n</b>)</sub></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5 Q 28 2.5, 54 5.5 T 97 3.5" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b07d00;">법선 위 반구의<br>모든 방향에 대해 적분</span>
+</span>
+<span class="term">
+<span class="t-formula"><i>f</i><sub>r</sub>(<i>x</i>, <i>ω</i><sub>i</sub>, <i>ω</i><sub>o</sub>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4.5 Q 25 7, 50 4 T 97 5.5" fill="none" stroke="#0a8f72" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#0a8f72;">BRDF — 재질의 반사 특성<br>(디퓨즈면 ρ/π 상수)</span>
+</span>
+<span class="term">
+<span class="t-formula"><i>L</i><sub>i</sub>(<i>x</i>, <i>ω</i><sub>i</sub>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5.5 Q 27 3, 53 6 T 97 4" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#6d28d9;">들어오는 빛<br>= 다른 표면의 <i>L</i><sub>o</sub> (재귀!)</span>
+</span>
+<span class="term">
+<span class="t-formula">(<b>n</b> · <i>ω</i><sub>i</sub>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4 Q 29 6, 55 3.5 T 97 5" fill="none" stroke="#3d63e0" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#3d63e0;">= cosθ, 코사인 감쇠<br>비스듬히 오면 약해진다</span>
+</span>
+<span class="term">
+<span class="t-formula">d<i>ω</i><sub>i</sub></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M6 5 Q 40 3, 60 5.5 T 94 4.5" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b07d00;">∫의 짝</span>
+</span>
+</div>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-문제는 언제나 저 적분이다. 반구 Ω 전체에서 들어오는 빛 L<sub>i</sub>는 또 다른 표면의 L<sub>o</sub>라서 방정식이 재귀적이고, 닫힌 형태의 해는 없다. 패스 트레이싱은 이 적분을 <strong>몬테카를로 방법</strong>으로 추정한다 — 확률밀도 p(ω)로 방향을 N개 뽑아 표본 평균을 내면, 그 기대값이 정확히 적분값과 같다.
+문제는 언제나 저 적분이다. 반구 Ω 전체에서 들어오는 빛 L<sub>i</sub>는 또 다른 표면의 L<sub>o</sub>라서 방정식이 재귀적이고, 닫힌 형태의 해는 없다. 그래서 패스 트레이싱은 적분을 "계산"하지 않고 <strong>추정</strong>한다 — 이것이 <strong>몬테카를로 방법</strong>이다. 발상은 여론조사와 같다. 전 국민에게 다 물어보지 않아도 1,000명만 무작위로 뽑으면 평균은 전체를 대표한다. 적분도 마찬가지다 — 반구의 무한히 많은 방향을 전부 더하는 대신, <strong>방향 몇 개만 무작위로 뽑아 평균을 내고, 거기에 적분 구간의 크기를 곱하면 된다.</strong>
 </p>
 
-<div class="formula">
-$$
-\int_{\Omega} f(\omega)\,\mathrm d\omega
-\;\approx\;
-\widehat I_N
-= \frac{1}{N}\sum_{k=1}^{N}
-\frac{f(\omega_k)}{p(\omega_k)},
-\qquad \omega_k\sim p(\omega)
-$$
+<div class="eq-anno-wrap">
+<div class="formula-label">1단계 — 균일하게 뽑는 경우:</div>
+<div class="eq-anno">
+<span class="term">
+<span class="t-formula"><span style="font-size:1.4em;">∫</span><sub>Ω</sub> <i>f</i>(<i>ω</i>) d<i>ω</i></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5 Q 27 2.5, 53 5.5 T 97 4" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b07d00;">구하려는 적분<br>= 곡선 아래 넓이</span>
+</span>
+<span class="op">≈</span>
+<span class="term">
+<span class="t-formula">|Ω|</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M5 4 Q 32 6.5, 58 3.5 T 95 5" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b45309;">적분 구간의 크기<br>(반구면 입체각 2π)</span>
+</span>
+<span class="op">·</span>
+<span class="term">
+<span class="t-formula"><span class="frac"><span class="fr-t">1</span><span class="fr-b"><i>N</i></span></span><span style="font-size:1.35em;padding-left:5px;">Σ</span><sub><i>k</i></sub> <i>f</i>(<i>ω</i><sub>k</sub>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4.5 Q 25 7, 50 4 T 97 5.5" fill="none" stroke="#0a8f72" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#0a8f72;">무작위 N개 방향에서 잰 값의<br>평균 = 곡선의 "평균 높이"</span>
+</span>
+</div>
+<div class="formula-note">넓이 = 밑변 × 평균 높이. 직사각형으로 곡선 아래 넓이를 근사하는 것과 같고, N이 늘수록 평균 높이가 참값에 수렴한다.</div>
+</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+그런데 꼭 <strong>균일하게</strong> 뽑을 필요는 없다. 밝은 창문처럼 기여가 큰 방향을 더 자주 뽑을 수 있다면 그쪽이 낫다. 다만 공짜는 아니다 — 자주 뽑히는 방향은 평균에 그만큼 <strong>과대 대표</strong>되므로, 각 표본을 "그 방향이 뽑힐 확률밀도 p(ω<sub>k</sub>)"로 나눠서 공평하게 만들어야 한다. 이 1/p 보정이 정말 참값을 주는지는 기대값을 계산해 보면 한 줄로 확인된다.
+</p>
+
+<div class="eq-anno-wrap">
+<div class="formula-label">2단계 — p로 뽑고 p로 나누면, 기대값에서 p가 약분된다:</div>
+<div class="eq-anno">
+<span class="term">
+<span class="t-formula">𝔼<span style="font-size:1.15em;">[</span><span class="frac"><span class="fr-t"><i>f</i>(<i>ω</i><sub>k</sub>)</span><span class="fr-b"><i>p</i>(<i>ω</i><sub>k</sub>)</span></span><span style="font-size:1.15em;">]</span></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5.5 Q 26 2, 52 5 T 97 4" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b45309;">보정된 표본의 기대값<br>(ω<sub>k</sub>는 p에서 뽑힌다)</span>
+</span>
+<span class="op">=</span>
+<span class="term">
+<span class="t-formula"><span style="font-size:1.4em;">∫</span><sub>Ω</sub> <span class="frac"><span class="fr-t"><i>f</i>(<i>ω</i>)</span><span class="fr-b"><i>p</i>(<i>ω</i>)</span></span> <i>p</i>(<i>ω</i>) d<i>ω</i></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4 Q 30 6.5, 55 3.5 T 97 5" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#6d28d9;">기대값 = 뽑힐 확률 p로 가중한 평균<br>→ 나눈 p와 곱한 p가 약분!</span>
+</span>
+<span class="op">=</span>
+<span class="term">
+<span class="t-formula"><span style="font-size:1.4em;">∫</span><sub>Ω</sub> <i>f</i>(<i>ω</i>) d<i>ω</i></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5 Q 28 2.5, 54 5.5 T 97 3.5" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b07d00;">원래 구하려던 적분 그대로<br>= "편향 없음"의 증명</span>
+</span>
+</div>
+</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+1단계의 균일 추출은 p = 1/2π인 특수 경우일 뿐이다 — 1/p = 2π = |Ω|가 되어 "구간 크기 곱하기"로 돌아간다. 그리고 p를 f가 큰 방향에 몰아줄수록 표본 사이의 편차가 줄어 같은 N으로도 노이즈가 준다. 이것이 <strong>중요도 샘플링(importance sampling)</strong>이고, 뒤에 나올 코사인 가중 샘플링(02장)과 ray guiding(04장)은 전부 "p를 얼마나 영리하게 고르느냐"의 이야기다. 이제 두 단계를 합친 일반형이 아래의 몬테카를로 추정 공식이다.
+</p>
+
+<div class="eq-anno-wrap">
+<div class="eq-anno">
+<span class="term">
+<span class="t-formula"><span style="font-size:1.4em;">∫</span><sub>Ω</sub> <i>f</i>(<i>ω</i>) d<i>ω</i></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5 Q 27 2.5, 53 5.5 T 97 4" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b07d00;">구하려는 적분<br>(참값 I)</span>
+</span>
+<span class="op">≈</span>
+<span class="term">
+<span class="t-formula"><span class="frac"><span class="fr-t">1</span><span class="fr-b"><i>N</i></span></span><span style="font-size:1.35em;padding-left:5px;">Σ</span><sub><i>k</i></sub></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4 Q 30 6.5, 55 3.5 T 97 5" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b45309;">N개 뽑아서<br>평균 낸다</span>
+</span>
+<span class="term">
+<span class="t-formula"><span class="frac"><span class="fr-t"><i>f</i>(<i>ω</i><sub>k</sub>)</span><span class="fr-b"><i>p</i>(<i>ω</i><sub>k</sub>)</span></span></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4.5 Q 25 7, 50 4 T 97 5.5" fill="none" stroke="#0a8f72" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#0a8f72;">그 방향에서 잰 값을<br>뽑힐 확률로 나눠 보정</span>
+</span>
+<span class="op">,</span>
+<span class="term">
+<span class="t-formula"><i>ω</i><sub>k</sub> ∼ <i>p</i>(<i>ω</i>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5.5 Q 27 3, 53 6 T 97 4" fill="none" stroke="#3d63e0" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#3d63e0;">방향은 확률밀도<br>p에서 추출</span>
+</span>
+</div>
 <div class="formula-note">편향 없는 추정량: \(\mathbb E[\widehat I_N]=I\), 표준 오차는 \(O(N^{-1/2})\)</div>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-핵심 성질 두 가지. 첫째, 이 추정에는 <strong>편향이 없다(unbiased)</strong> — 틀린 값으로 수렴하는 게 아니라, 맞는 값 주변에서 흔들린다. 오차는 체계적 왜곡이 아닌 <strong>노이즈</strong>로 나타나고, 샘플을 4배 쓰면 노이즈는 절반이 된다. 둘째, 재귀는 경로로 풀린다 — 방향을 하나 뽑아 광선을 쏘고, 부딪힌 곳에서 또 하나 뽑아 쏘고… 를 반복하면 가지 치는 트리 대신 <strong>경로(path)</strong> 하나가 적분의 표본 하나가 된다. 카지야가 논문에서 "branching tree 대신 확률적으로 광선 하나만 쏘라"고 쓴 그대로다.
+핵심 성질 두 가지. 첫째, 이 추정에는 <strong>편향이 없다(unbiased)</strong>. 방향 ω<sub>k</sub>를 무작위로 뽑기 때문에 <strong>추정값 Î<sub>N</sub>은 계산할 때마다 조금씩 다른 숫자가 나온다</strong> — 운 좋게 밝은 방향이 많이 뽑힌 판에서는 참값보다 크게, 어두운 방향만 뽑힌 판에서는 작게. 하지만 어느 쪽으로 치우치는 일 없이 그 기대값은 정확히 참값이다. 라이트맵 베이크에서는 텍셀마다 각자 다른 무작위 방향을 뽑으니 이웃 텍셀끼리 추정값이 들쭉날쭉해지는데, 이 들쭉날쭉함이 바로 패스 트레이싱 특유의 <strong>노이즈</strong>다. 즉 오차의 정체는 "계산이 틀려서 생긴 왜곡"이 아니라 "복권 추첨의 운"이고, 그래서 샘플 수 N을 4배로 늘리면 노이즈는 절반으로 준다(표준 오차 ∝ 1/√N). 둘째, 재귀는 경로로 풀린다 — 방향을 하나 뽑아 광선을 쏘고, 부딪힌 곳에서 또 하나 뽑아 쏘고… 를 반복하면 가지 치는 트리 대신 <strong>경로(path)</strong> 하나가 적분의 표본 하나가 된다. 카지야가 논문에서 "branching tree 대신 확률적으로 광선 하나만 쏘라"고 쓴 그대로다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-그런데 라이트맵을 구울 때는 방정식을 그대로 풀 수 없는 제약이 하나 있다. <strong>베이크 시점에는 카메라가 없다.</strong> ω<sub>o</sub>를 모르니 뷰 의존적인 스페큘러는 계산할 수 없고, 뷰와 무관한 항만 남겨야 한다. 램버시안(디퓨즈) BRDF는 f<sub>r</sub> = ρ/π로 방향과 무관하므로, 적분 밖으로 빠진다.
+위의 몬테카를로 공식은 일반형이라, f(ω) 자리에 무엇을 넣을지는 문제마다 정하면 된다. 렌더링 방정식을 풀 때 f(ω)에 들어가는 것은 <strong>피적분 함수 전체</strong>, 즉 f(ω<sub>k</sub>) = f<sub>r</sub>(x, ω<sub>k</sub>, ω<sub>o</sub>) · L<sub>i</sub>(x, ω<sub>k</sub>) · cosθ<sub>k</sub>다. 그런데 여기서 라이트맵 베이크만의 제약이 등장한다. <strong>베이크 시점에는 카메라가 없다.</strong> f<sub>r</sub>은 나가는 방향 ω<sub>o</sub>를 인자로 받는 함수인데 ω<sub>o</sub>를 모르니, 뷰에 따라 값이 달라지는 스페큘러 BRDF는 평가할 방법이 없고 뷰와 무관한 재질만 가정할 수 있다. 램버시안(디퓨즈) BRDF는 f<sub>r</sub> = ρ/π로 ω<sub>i</sub>·ω<sub>o</sub> 어느 쪽과도 무관한 <strong>상수</strong>라서 적분 밖으로 빠지고, 그러면 몬테카를로가 추정해야 할 f(ω<sub>k</sub>)에는 <strong>L<sub>i</sub> · cosθ만 남는다</strong>. 아래 공식이 그 결과다 — L<sub>o</sub><sup>diff</sup>는 몬테카를로 공식에 대입하는 입력이 아니라, 추정으로 얻은 적분값 E(x)에 상수 ρ/π를 도로 곱해 나오는 <strong>최종 출력</strong>이다.
 </p>
 
-<div class="formula">
+<div class="eq-anno-wrap">
 <div class="formula-label">램버시안 가정:</div>
-$$
-\begin{aligned}
-f_r &= \frac{\rho}{\pi}, \\
-E(x) &= \int_{\Omega^+(\mathbf n)}
-L_i(x,\omega_i)(\mathbf n\!\cdot\!\omega_i)\,\mathrm d\omega_i, \\
-L_o^{\mathrm{diff}}(x)
-&= \frac{\rho}{\pi}E(x).
-\end{aligned}
-$$
+<div class="eq-anno">
+<span class="term">
+<span class="t-formula"><i>L</i><sub>o</sub><sup>diff</sup>(<i>x</i>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5.5 Q 26 2, 52 5 T 97 4" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b45309;">디퓨즈 표면이<br>내보내는 빛</span>
+</span>
+<span class="op">=</span>
+<span class="term">
+<span class="t-formula"><span class="frac"><span class="fr-t"><i>ρ</i></span><span class="fr-b">π</span></span></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M6 4 Q 35 6.5, 60 3.5 T 94 5" fill="none" stroke="#0a8f72" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#0a8f72;">램버시안 BRDF — 방향과<br>무관한 상수 (적분 밖으로!)</span>
+</span>
+<span class="op">·</span>
+<span class="term">
+<span class="t-formula"><i>E</i>(<i>x</i>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M4 5 Q 28 2.5, 54 5.5 T 96 3.5" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b07d00;">조도(irradiance) = ∫ <i>L</i><sub>i</sub> cosθ dω, 반구에서 받은 빛 총량<br>← 몬테카를로가 실제로 추정하는 부분</span>
+</span>
+</div>
 <div class="formula-label formula-label-next">GPU Lightmass가 텍셀에 저장하는 값:</div>
-$$
-\operatorname{Lightmap}(x)
-= \frac{E(x)}{\pi}
-= \frac{1}{\pi}\int_{\Omega^+(\mathbf n)}
-L_i(x,\omega_i)(\mathbf n\!\cdot\!\omega_i)\,\mathrm d\omega_i
-$$
+<div class="eq-anno">
+<span class="term">
+<span class="t-formula">Lightmap(<i>x</i>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4.5 Q 25 7, 50 4 T 97 5.5" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b45309;">텍셀에 남는 숫자</span>
+</span>
+<span class="op">=</span>
+<span class="term">
+<span class="t-formula"><span class="frac"><span class="fr-t"><i>E</i>(<i>x</i>)</span><span class="fr-b">π</span></span></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M5 4 Q 32 6, 58 3.5 T 95 5" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b07d00;">조도 ÷ π</span>
+</span>
+<span class="op">=</span>
+<span class="term">
+<span class="t-formula"><span class="frac"><span class="fr-t">1</span><span class="fr-b">π</span></span><span style="font-size:1.4em;padding-left:4px;">∫</span><sub>Ω⁺(<b>n</b>)</sub> <i>L</i><sub>i</sub>(<i>x</i>, <i>ω</i><sub>i</sub>)(<b>n</b> · <i>ω</i><sub>i</sub>) d<i>ω</i><sub>i</sub></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M2 5 Q 25 2.5, 50 5.5 T 98 4" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#6d28d9;">들어온 빛만 모은다<br>— ρ는 어디에도 없다!</span>
+</span>
+</div>
 <div class="formula-note">알베도 \(\rho\)는 저장하지 않고 런타임에 곱한다: \(L_o^{\mathrm{diff}}(x)=\rho\,\operatorname{Lightmap}(x)\).</div>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-즉 GPU Lightmass가 만드는 값은 <strong>조도(irradiance) E(x)를 π로 나눈 것</strong> — 다르게 말하면 "알베도가 1인 하얀 램버시안 표면이었을 때 그 점이 내보낼 radiance"다. 재질의 알베도 ρ는 <strong>일부러 빼고</strong> 굽는다. 알베도는 런타임에 G버퍼에서 읽어 곱하면 되고, 그래야 라이트맵 해상도(보통 텍셀 하나가 수~수십 cm)가 아닌 <strong>재질 텍스처 해상도로 알베도 디테일이 살아나며</strong>, 베이크 후에 머티리얼의 베이스컬러를 바꿔도 라이팅이 (근사적으로) 유효하다. 이 분리는 06장에서 코드로 다시 확인한다.
+즉 GPU Lightmass가 만드는 값은 <strong>조도(irradiance) E(x)를 π로 나눈 것</strong> — 다르게 말하면 "알베도가 1인 하얀 램버시안 표면이었을 때 그 점이 내보낼 radiance"다. 왜 하필 π로 나누는지는 에너지 보존으로 설명된다. 램버시안 표면은 받은 빛을 모든 방향으로 <strong>균일한 radiance L<sub>o</sub></strong>로 되쏘는데, 나가는 에너지를 반구 전체에서 합치면 L<sub>o</sub> · ∫cosθ dω = <strong>π · L<sub>o</sub></strong>가 된다 — 반구 코사인 적분값이 정확히 π이기 때문이다. 알베도 1이면 이 나가는 총량이 받은 총량 E와 같아야 하므로 L<sub>o</sub> = E/π. 즉 π는 어떤 물리 법칙이 아니라 <strong>"반구 전체"라는 기하학이 만들어내는 상수</strong>이고, 램버시안 BRDF에 붙어 있던 1/π(f<sub>r</sub> = ρ/π)의 정체도 이것이다 — π로 나눠줘야 되쏘는 에너지가 받은 에너지를 넘지 않는다. 재질의 알베도 ρ는 <strong>일부러 빼고</strong> 굽는다. 알베도는 런타임에 G버퍼에서 읽어 곱하면 되고, 그래야 라이트맵 해상도(보통 텍셀 하나가 수~수십 cm)가 아닌 <strong>재질 텍스처 해상도로 알베도 디테일이 살아나며</strong>, 베이크 후에 머티리얼의 베이스컬러를 바꿔도 라이팅이 (근사적으로) 유효하다. 이 분리는 06장에서 코드로 다시 확인한다.
 </p>
 
 <div class="callout callout-purple">
@@ -447,22 +584,38 @@ DiffuseColor += (DiffuseIndirectLighting * DiffuseColorForIndirect   <span class
 01장의 공식이 완성되는 순간이다 — 베이크가 남겨둔 ρ가 여기서 곱해져 <strong>ρ × (조도/π)</strong>, 즉 램버시안 항 (ρ/π)·E(x)가 된다. 방정식 관점으로 최종 픽셀을 분해하면 이렇다.
 </p>
 
-<div class="formula">
+<div class="eq-anno-wrap">
 <div class="formula-label">최종 픽셀:</div>
-$$
-\begin{aligned}
-L_{\mathrm{pixel}}
-={}&L_{\mathrm{direct}}
-+ \underbrace{\rho\,\operatorname{Lightmap}(x)}_{\text{GPU Lightmass: diffuse baked lighting}} \\
-&+L_{\mathrm{indirect}}^{\mathrm{specular}}
-+L_e.
-\end{aligned}
-$$
-<div class="formula-note formula-breakdown">
-<div><strong>직접광:</strong> Stationary/Movable 라이트의 디퓨즈·스페큘러 BRDF 전체이며, 섀도마스크로 감쇠한다.</div>
-<div><strong>ρ · Lightmap(x):</strong> GPU Lightmass가 공급하는 디퓨즈 간접광과 Static 직접광이다.</div>
-<div><strong>스페큘러 간접광:</strong> Reflection Capture·Lumen Reflection·SSR 경로에서 별도로 계산한다.</div>
-<div><strong>L<sub>e</sub>:</strong> 화면에서 더하는 자발광이다. 베이크된 emissive의 간접 기여는 라이트맵 안에 이미 포함된다.</div>
+<div class="eq-anno">
+<span class="term">
+<span class="t-formula"><i>L</i><sub>pixel</sub></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M4 5 Q 28 2.5, 54 5.5 T 96 4" fill="none" stroke="#4a4038" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#4a4038;">화면 픽셀의<br>최종 빛</span>
+</span>
+<span class="op">=</span>
+<span class="term">
+<span class="t-formula"><i>L</i><sub>direct</sub></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4 Q 30 6.5, 55 3.5 T 97 5" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b07d00;">직접광 — 런타임에 계산<br>(Stationary·Movable, 섀도마스크로 감쇠)</span>
+</span>
+<span class="op">+</span>
+<span class="term">
+<span class="t-formula"><i>ρ</i> · Lightmap(<i>x</i>)</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 5.5 Q 26 2, 52 5 T 97 4" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b45309;">★ GPU Lightmass의 자리<br>디퓨즈 간접광 + Static 직접광</span>
+</span>
+<span class="op">+</span>
+<span class="term">
+<span class="t-formula"><i>L</i><sub>indirect</sub><sup>spec</sup></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4.5 Q 25 7, 50 4 T 97 5.5" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#6d28d9;">스페큘러 간접광 — 라이트맵과 무관<br>(Reflection Capture·Lumen·SSR)</span>
+</span>
+<span class="op">+</span>
+<span class="term">
+<span class="t-formula"><i>L</i><sub>e</sub></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M4 4 Q 30 6, 56 3.5 T 96 5" fill="none" stroke="#d6304a" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#d6304a;">자발광 (그 간접 기여는<br>라이트맵에 이미 포함)</span>
+</span>
 </div>
 </div>
 
