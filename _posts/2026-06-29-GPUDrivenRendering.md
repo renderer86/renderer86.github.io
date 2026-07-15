@@ -7,7 +7,7 @@ categories: Rendering
 tags: [Rendering, GraphicsProgramming, GPUDriven, IndirectDraw, GPUCulling, UnrealEngine, Nanite]
 excerpt: "왜 전통적인 CPU-driven 렌더링이 '드로우콜 제출'에서 막히는지, indirect draw(ExecuteIndirect·vkCmdDrawIndirectCount)가 드로우 인자를 GPU 버퍼로 옮겨 어떻게 그 벽을 허무는지, GPU 컬링(frustum·2-pass HZB occlusion)과 persistent scene buffer·visibility buffer가 그 위에서 어떻게 동작하는지 — 마지막으로 UE5가 FGPUScene·InstanceCulling.usf·FMeshDrawCommand로 이걸 실제로 구현하는 코드까지. mesh shader·Nanite·async compute 글을 묶는 상위 글이다."
 back_color: "#ffffff"
-img_name: "gpudriven.webp"
+img_name: "gpudriven-timeline-sketch.webp"
 toc: false
 show: true
 new: true
