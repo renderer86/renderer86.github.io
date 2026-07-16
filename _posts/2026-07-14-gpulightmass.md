@@ -5,7 +5,7 @@ icon: paper
 permalink: gpu-lightmass
 categories: Rendering
 tags: [ComputerGraphics, Rendering, UnrealEngine, GlobalIllumination, GPULightmass, PathTracing, Lightmap, Lumen, MonteCarlo]
-excerpt: "GPU Lightmass는 라이트맵 텍셀 하나하나를 '카메라'로 삼아 DXR 하드웨어 레이 트레이싱으로 몬테카를로 패스 트레이싱을 돌리는 오프라인 베이커다. 이 글은 UE 5.8 소스(LightmapPathTracing.usf)를 따라 텍셀당 512개 경로가 NEE·MIS·러시안 룰렛으로 렌더링 방정식의 적분항을 추정하는 과정, 그 결과가 조도/π + SH 방향성으로 인코딩되어 베이스 패스의 디퓨즈 항에만 곱해지는 경로를 코드로 추적한다. 마지막으로 Surface Cache 피드백 루프로 GI를 근사하는 Lumen과 나란히 놓고 — 오차가 '노이즈'로 나타나는 쪽과 '체계적 편향'으로 나타나는 쪽 — 어느 쪽이 렌더링 방정식에 더 충실한지 따져본다."
+excerpt: "GPU Lightmass는 라이트맵 텍셀 하나하나를 '카메라'로 삼아 DXR 하드웨어 레이 트레이싱으로 몬테카를로 패스 트레이싱을 돌리는 오프라인 베이커다. 이 글은 UE 5.8 소스(LightmapPathTracing.usf)를 따라 텍셀당 512개 경로가 NEE·MIS·러시안 룰렛으로 렌더링 방정식의 적분항을 추정하는 과정, 그 결과가 irradiance/π + SH directionality로 인코딩되어 베이스 패스의 디퓨즈 항에만 곱해지는 경로를 코드로 추적한다. 마지막으로 Surface Cache 피드백 루프로 GI를 근사하는 Lumen과 나란히 놓고 — 오차가 '노이즈'로 나타나는 쪽과 '체계적 편향'으로 나타나는 쪽 — 어느 쪽이 렌더링 방정식에 더 충실한지 따져본다."
 back_color: "#ffffff"
 img_name: "volumetric-lightmap-sh-sketch-white.webp"
 toc: false
@@ -21,16 +21,16 @@ index: 22
 > - 라이트맵을 "굽는다"는 게 수식으로 정확히 무엇을 계산하는 일인지 궁금한 분
 > - GPU Lightmass가 렌더링 방정식의 어느 항을 담당하고, 구운 결과가 최종 픽셀 색의 어디에 더해지는지 코드로 확인하고 싶은 분
 > - 레거시 CPU Lightmass(포톤 매핑)와 GPU Lightmass(패스 트레이싱)가 알고리즘부터 다르다는 걸 짚고 싶은 분
-> - 라이트맵에 알베도가 왜 안 들어가는지, 방향성(directionality) SH가 노멀맵과 어떻게 만나는지 궁금한 분
+> - 라이트맵에 알베도가 왜 안 들어가는지, directionality SH가 노멀맵과 어떻게 만나는지 궁금한 분
 > - Lumen과 GPU Lightmass 중 "뭐가 더 물리 기반이냐"는 질문에 bias/noise 관점의 답을 원하는 분
 >
 > **이 글로 알 수 있는 내용**
 >
-> - 카지야 렌더링 방정식의 적분항을 몬테카를로로 추정하는 공식과, GPU Lightmass가 텍셀에 저장하는 값의 정확한 정체 — **조도(irradiance)/π**
+> - 카지야 렌더링 방정식의 적분항을 몬테카를로로 추정하는 공식과, GPU Lightmass가 텍셀에 저장하는 값의 정확한 정체 — **irradiance/π**
 > - `LightmapPathTracing.usf`의 `PathTracingKernel` 해부 — 텍셀을 albedo=1 램버시안 표면으로 두는 가짜 카메라 광선, 최대 32 바운스, NEE + MIS, 러시안 룰렛
-> - Irradiance Caching과 First Bounce Ray Guiding이 무엇을 얻고 무엇("편향 없음")을 내주는지
+> - Irradiance Caching이 속도를 얻는 대신 무엇("편향 없음")을 내주는지, Ray Guiding은 왜 아무것도 안 내주고 노이즈만 줄이는지
 > - 컬러 라이트맵 = 간접광(전체) + 직접광(Static 전용), Stationary 직접광은 별도 섀도마스크 — 이 분리가 코드 어디서 일어나는지
-> - LogLUVW 색 + L1 SH 방향성 인코딩, 그리고 베이스 패스에서 `DiffuseColor × 라이트맵`으로 **디퓨즈 항에만** 더해지는 런타임 경로
+> - LogLUVW 색 + L1 SH directionality 인코딩, 그리고 베이스 패스에서 `DiffuseColor × 라이트맵`으로 **디퓨즈 항에만** 더해지는 런타임 경로
 > - 움직이는 오브젝트를 위한 볼류메트릭 라이트맵(3밴드 SH 브릭)
 > - Lumen의 Surface Cache·스크린 프로브·시간 누적 구조와의 정면 비교, 그리고 "물리 기반" 논쟁의 정리
 
@@ -366,7 +366,7 @@ index: 22
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-핵심 성질 두 가지. 첫째, 이 추정에는 <strong>편향이 없다(unbiased)</strong>. 방향 ω<sub>k</sub>를 무작위로 뽑기 때문에 <strong>추정값 Î<sub>N</sub>은 계산할 때마다 조금씩 다른 숫자가 나온다</strong> — 운 좋게 밝은 방향이 많이 뽑힌 판에서는 참값보다 크게, 어두운 방향만 뽑힌 판에서는 작게. 하지만 어느 쪽으로 치우치는 일 없이 그 기대값은 정확히 참값이다. 라이트맵 베이크에서는 텍셀마다 각자 다른 무작위 방향을 뽑으니 이웃 텍셀끼리 추정값이 들쭉날쭉해지는데, 이 들쭉날쭉함이 바로 패스 트레이싱 특유의 <strong>노이즈</strong>다. 즉 오차의 정체는 "계산이 틀려서 생긴 왜곡"이 아니라 "복권 추첨의 운"이고, 그래서 샘플 수 N을 4배로 늘리면 노이즈는 절반으로 준다(표준 오차 ∝ 1/√N). 둘째, 재귀는 경로로 풀린다 — 방향을 하나 뽑아 광선을 쏘고, 부딪힌 곳에서 또 하나 뽑아 쏘고… 를 반복하면 가지 치는 트리 대신 <strong>경로(path)</strong> 하나가 적분의 표본 하나가 된다. 카지야가 논문에서 "branching tree 대신 확률적으로 광선 하나만 쏘라"고 쓴 그대로다.
+핵심 성질 두 가지. 첫째, 이 추정에는 <strong>편향이 없다(unbiased)</strong>. 방향 ω<sub>k</sub>를 무작위로 뽑기 때문에 <strong>추정값 Î<sub>N</sub>은 계산할 때마다 조금씩 다른 숫자가 나온다</strong> — 운 좋게 밝은 방향이 많이 뽑힌 판에서는 참값보다 크게, 어두운 방향만 뽑힌 판에서는 작게. 하지만 어느 쪽으로 치우치는 일 없이 그 기대값은 정확히 참값이다. 저울로 비유하면 — <strong>영점은 정확한데 잴 때마다 눈금이 조금씩 떨리는 저울</strong>이다. 여러 번 재서 평균 내면 정확한 무게가 나온다. 반대 개념인 <strong>편향(bias)</strong>은 영점 자체가 밀려 있는 저울이다 — 떨림 없이 안정적으로 나오지만 백 번을 재서 평균 내도 밀린 만큼 틀린 값이고, 아무리 반복해도 사라지지 않는, 측정 방법 자체에 내장된 오차다. 이 구분은 04장(Irradiance Caching)과 09장(Lumen 비교)에서 계속 쓰인다. 라이트맵 베이크에서는 텍셀마다 각자 다른 무작위 방향을 뽑으니 이웃 텍셀끼리 추정값이 들쭉날쭉해지는데, 이 들쭉날쭉함이 바로 패스 트레이싱 특유의 <strong>노이즈</strong>다. 즉 오차의 정체는 "계산이 틀려서 생긴 왜곡"이 아니라 "복권 추첨의 운"이고, 그래서 샘플 수 N을 4배로 늘리면 노이즈는 절반으로 준다(표준 오차 ∝ 1/√N). 둘째, 재귀는 경로로 풀린다 — 방향을 하나 뽑아 광선을 쏘고, 부딪힌 곳에서 또 하나 뽑아 쏘고… 를 반복하면 가지 치는 트리 대신 <strong>경로(path)</strong> 하나가 적분의 표본 하나가 된다. 카지야가 논문에서 "branching tree 대신 확률적으로 광선 하나만 쏘라"고 쓴 그대로다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -391,7 +391,7 @@ index: 22
 <span class="term">
 <span class="t-formula"><i>E</i>(<i>x</i>)</span>
 <svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M4 5 Q 28 2.5, 54 5.5 T 96 3.5" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
-<span class="t-label" style="color:#b07d00;">조도(irradiance) = ∫ <i>L</i><sub>i</sub> cosθ dω, 반구에서 받은 빛 총량<br>← 몬테카를로가 실제로 추정하는 부분</span>
+<span class="t-label" style="color:#b07d00;">irradiance = ∫ <i>L</i><sub>i</sub> cosθ dω, 반구에서 받은 빛 총량<br>← 몬테카를로가 실제로 추정하는 부분</span>
 </span>
 </div>
 <div class="formula-label formula-label-next">GPU Lightmass가 텍셀에 저장하는 값:</div>
@@ -405,7 +405,7 @@ index: 22
 <span class="term">
 <span class="t-formula"><span class="frac"><span class="fr-t"><i>E</i>(<i>x</i>)</span><span class="fr-b">π</span></span></span>
 <svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M5 4 Q 32 6, 58 3.5 T 95 5" fill="none" stroke="#b07d00" stroke-width="2" stroke-linecap="round"/></svg>
-<span class="t-label" style="color:#b07d00;">조도 ÷ π</span>
+<span class="t-label" style="color:#b07d00;">irradiance ÷ π</span>
 </span>
 <span class="op">=</span>
 <span class="term">
@@ -418,12 +418,12 @@ index: 22
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-즉 GPU Lightmass가 만드는 값은 <strong>조도(irradiance) E(x)를 π로 나눈 것</strong> — 다르게 말하면 "알베도가 1인 하얀 램버시안 표면이었을 때 그 점이 내보낼 radiance"다. 왜 하필 π로 나누는지는 에너지 보존으로 설명된다. 램버시안 표면은 받은 빛을 모든 방향으로 <strong>균일한 radiance L<sub>o</sub></strong>로 되쏘는데, 나가는 에너지를 반구 전체에서 합치면 L<sub>o</sub> · ∫cosθ dω = <strong>π · L<sub>o</sub></strong>가 된다 — 반구 코사인 적분값이 정확히 π이기 때문이다. 알베도 1이면 이 나가는 총량이 받은 총량 E와 같아야 하므로 L<sub>o</sub> = E/π. 즉 π는 어떤 물리 법칙이 아니라 <strong>"반구 전체"라는 기하학이 만들어내는 상수</strong>이고, 램버시안 BRDF에 붙어 있던 1/π(f<sub>r</sub> = ρ/π)의 정체도 이것이다 — π로 나눠줘야 되쏘는 에너지가 받은 에너지를 넘지 않는다. 재질의 알베도 ρ는 <strong>일부러 빼고</strong> 굽는다. 알베도는 런타임에 G버퍼에서 읽어 곱하면 되고, 그래야 라이트맵 해상도(보통 텍셀 하나가 수~수십 cm)가 아닌 <strong>재질 텍스처 해상도로 알베도 디테일이 살아나며</strong>, 베이크 후에 머티리얼의 베이스컬러를 바꿔도 라이팅이 (근사적으로) 유효하다. 이 분리는 06장에서 코드로 다시 확인한다.
+즉 GPU Lightmass가 만드는 값은 <strong>irradiance E(x)를 π로 나눈 것</strong> — 다르게 말하면 "알베도가 1인 하얀 램버시안 표면이었을 때 그 점이 내보낼 radiance"다. 왜 하필 π로 나누는지는 에너지 보존으로 설명된다. 램버시안 표면은 받은 빛을 모든 방향으로 <strong>균일한 radiance L<sub>o</sub></strong>로 되쏘는데, 나가는 에너지를 반구 전체에서 합치면 L<sub>o</sub> · ∫cosθ dω = <strong>π · L<sub>o</sub></strong>가 된다 — 반구 코사인 적분값이 정확히 π이기 때문이다. 알베도 1이면 이 나가는 총량이 받은 총량 E와 같아야 하므로 L<sub>o</sub> = E/π. 즉 π는 어떤 물리 법칙이 아니라 <strong>"반구 전체"라는 기하학이 만들어내는 상수</strong>이고, 램버시안 BRDF에 붙어 있던 1/π(f<sub>r</sub> = ρ/π)의 정체도 이것이다 — π로 나눠줘야 되쏘는 에너지가 받은 에너지를 넘지 않는다. 재질의 알베도 ρ는 <strong>일부러 빼고</strong> 굽는다. 알베도는 런타임에 G버퍼에서 읽어 곱하면 되고, 그래야 라이트맵 해상도(보통 텍셀 하나가 수~수십 cm)가 아닌 <strong>재질 텍스처 해상도로 알베도 디테일이 살아나며</strong>, 베이크 후에 머티리얼의 베이스컬러를 바꿔도 라이팅이 (근사적으로) 유효하다. 이 분리는 06장에서 코드로 다시 확인한다.
 </p>
 
 <div class="callout callout-purple">
 <div class="callout-title">한 줄 요약</div>
-<p>GPU Lightmass의 공식은 <strong>"렌더링 방정식의 산란 적분항을, 디퓨즈 BRDF 가정 하에, 텍셀당 몬테카를로 패스 트레이싱으로 추정한 것"</strong>이다. 텍셀에 남는 숫자는 조도/π이고, 방향 정보는 SH 계수로 함께 저장된다(05장).</p>
+<p>GPU Lightmass의 공식은 <strong>"렌더링 방정식의 산란 적분항을, 디퓨즈 BRDF 가정 하에, 텍셀당 몬테카를로 패스 트레이싱으로 추정한 것"</strong>이다. 텍셀에 남는 숫자는 irradiance/π이고, 방향 정보는 SH 계수로 함께 저장된다(05장).</p>
 </div>
 
 <span class="section-eyebrow">02 — 커널</span>
@@ -452,9 +452,9 @@ Payload.ShadingModelID = PATH_TRACING_SHADINGMODELID_BASIC;  <span class="cm">//
 </p>
 
 <div class="code-block"><span class="code-lang">LightmapPathTracing.usf — 샘플 누적</span><span class="cm">// RadianceValue: 이 경로가 모아온 빛, TangentZ: cosθ</span>
-IrradianceAndSampleCount.rgb += RadianceValue * TangentZ / PI;   <span class="cm">// ← 조도/π 누적</span>
+IrradianceAndSampleCount.rgb += RadianceValue * TangentZ / PI;   <span class="cm">// ← irradiance/π 누적</span>
 IrradianceAndSampleCount.w   += <span class="num">1</span>;                               <span class="cm">// 샘플 카운트</span>
-SHDirectionality             += SH.L2SHCoefficients;             <span class="cm">// 방향성 SH (05장)</span></div>
+SHDirectionality             += SH.L2SHCoefficients;             <span class="cm">// directionality SH (05장)</span></div>
 
 <p style="color:var(--text2);line-height:1.85;">
 누적된 값은 패스가 끝날 때마다가 아니라 최종 출력 단계(<code>LightmapOutput.usf</code>의 <code>SelectiveLightmapOutputCS</code>)에서 <code>OutputColor = IrradianceAndSampleCount.rgb / SampleCount</code>로 나눠져 표본 평균이 된다 — 01장의 (1/N)Σ가 코드로 옮겨진 지점이다. 얼마나 쌓나? <code>GPULightmassSettings.h</code>의 <strong><code>GISamples</code> 기본값 512</strong>가 "텍셀당, 모든 바운스에 걸쳐 실행되는 광선 경로의 총 개수"다. 렌더 패스 1회가 텍셀당 경로 1개씩을 진행시키고, 512 패스가 쌓이면 그 텍셀은 수렴한 것으로 표시된다(<code>LightmapRenderer.cpp</code>). 남은 노이즈는 마지막에 디노이저(기본 Intel Open Image Denoise)가 정리한다.
@@ -477,37 +477,37 @@ SHDirectionality             += SH.L2SHCoefficients;             <span class="cm
 <rect x="420" y="60" width="180" height="130" rx="10" fill="rgba(109,40,217,0.05)" stroke="rgba(109,40,217,0.35)" stroke-width="1.2"/>
 <text x="510" y="86" fill="#6d28d9" font-size="12" text-anchor="middle" font-weight="600">텍셀 누적 버퍼</text>
 <text x="510" y="112" fill="#4a4038" font-size="11" text-anchor="middle">Σ Radiance·cosθ/π</text>
-<text x="510" y="132" fill="#4a4038" font-size="11" text-anchor="middle">Σ SH 방향성 계수</text>
+<text x="510" y="132" fill="#4a4038" font-size="11" text-anchor="middle">Σ SH directionality 계수</text>
 <text x="510" y="152" fill="#4a4038" font-size="11" text-anchor="middle">SampleCount N</text>
 <text x="510" y="176" fill="#8a7f74" font-size="10" text-anchor="middle">마지막에 ÷N → 라이트맵</text>
 <line x1="315" y1="160" x2="415" y2="130" stroke="#6d28d9" stroke-width="1.4" marker-end="url(#gp-ah2)"/>
 <text x="360" y="132" fill="#6d28d9" font-size="10" text-anchor="middle">경로당 1샘플 × 512</text>
 </svg>
-<div class="scene-cap">텍셀이 카메라를 대신한다 — 텍셀 반구에서 경로를 512개 출발시켜, 각 경로가 가져온 radiance·cosθ/π를 평균 내면 그 텍셀의 라이트맵 값(조도/π)이 된다.</div>
+<div class="scene-cap">텍셀이 카메라를 대신한다 — 텍셀 반구에서 경로를 512개 출발시켜, 각 경로가 가져온 radiance·cosθ/π를 평균 내면 그 텍셀의 라이트맵 값(irradiance/π)이 된다.</div>
 </div>
 
-<span class="section-eyebrow">03 — 경로의 삶</span>
+<span class="section-eyebrow">03 — path의 이동과 소멸</span>
 </div>
 
-# 경로 하나는 어떻게 살고 죽나 — NEE·MIS·러시안 룰렛
+# ray 하나의 path는 어떻게 움직이고, 언제 소멸되나 — NEE·MIS·러시안 룰렛
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
-커널의 메인 루프는 <code>for (int Bounce = 0; Bounce &lt;= MaxBounces; Bounce++)</code>이고 <code>MaxBounces = 32</code>로 하드코딩되어 있다. 하지만 실제로 32번 튕기는 경로는 거의 없다 — 종료는 <strong>러시안 룰렛</strong>이 확률적으로 결정한다.
+텍셀에서 출발한 ray는 표면에 부딪히고, 그 지점에서 새 방향을 뽑아 다시 나아가고, 또 부딪히고… 를 반복하며 하나의 <strong>path</strong>를 그려 나간다. 커널의 메인 루프가 이 반복이다 — <code>for (int Bounce = 0; Bounce &lt;= MaxBounces; Bounce++)</code>, <code>MaxBounces = 32</code>로 하드코딩되어 있다. 하지만 실제로 32번을 다 튕기는 path는 거의 없다 — <strong>언제 멈출지는 러시안 룰렛이 확률적으로 결정한다.</strong>
 </p>
 
 <div class="code-block"><span class="code-lang">LightmapPathTracing.usf — 러시안 룰렛</span><span class="cm">// 다음 바운스 기여의 상한/현재 처리량 비율로 "계속 확률"을 정한다</span>
 <span class="kw">float</span> ContinuationProb = sqrt(saturate(max3(NextPathThroughput) / max3(PathThroughput)));
 <span class="kw">if</span> (RussianRouletteRand &gt;= ContinuationProb)
-    <span class="kw">break</span>;                                  <span class="cm">// 경로 사망</span>
-PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 생존 시 1/확률 보정 → 기대값이 안 변한다 (unbiased)</span></div>
+    <span class="kw">break</span>;                                  <span class="cm">// 여기서 path 소멸</span>
+PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 계속 진행 시 1/확률 보정 → 기대값이 안 변한다 (unbiased)</span></div>
 
 <p style="color:var(--text2);line-height:1.85;">
-살아남은 경로의 처리량을 생존 확률로 나눠주는 마지막 줄이 핵심이다. 이 보정 덕분에 경로를 일찍 끊어도 <strong>추정의 기대값은 변하지 않는다</strong> — PBRT 교과서에 나오는 표준 기법 그대로다. 어두워진 경로(처리량이 작아진 경로)일수록 빨리 죽고, 밝은 경로는 오래 산다. 계산량은 아끼면서 편향은 만들지 않는 것이다.
+룰렛을 통과해 계속 나아가는 path의 처리량(throughput)을 통과 확률로 나눠주는 마지막 줄이 핵심이다. 이 보정 덕분에 path를 일찍 끊어도 <strong>추정의 기대값은 변하지 않는다</strong> — PBRT 교과서에 나오는 표준 기법 그대로다. 결과적으로 처리량이 작아진(= 더 가봐야 기여가 적은) path일수록 일찍 소멸하고, 기여가 큰 path는 오래 이어진다. 계산량은 아끼면서 편향은 만들지 않는 것이다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-분산을 줄이는 두 축은 프로덕션 패스 트레이서의 정석 조합이다. 첫째, <strong>NEE(next event estimation, 명시적 광원 샘플링)</strong> — 매 바운스에서 광원을 직접 하나 골라 그림자 광선을 쏜다. 광원 선택은 공간을 분할한 <strong>light grid</strong>(<code>LightGridLookup</code> → <code>EstimateLight</code> → <code>SelectLight</code> → <code>SampleLight</code>)로 가속된다. 둘째, <strong>MIS(multiple importance sampling)</strong> — 같은 빛을 광원 샘플링으로도, BRDF 샘플링으로도 셀 수 있으므로 <code>MISWeightPower(LightSample.Pdf, MaterialEval.Pdf)</code> 파워 휴리스틱으로 이중 계산 없이 두 전략의 장점을 합친다(<code>MISMode = 2</code>, Material과 Light 둘 다). 그 밖에 emissive 재질의 기여(<code>EnableEmissive = 1</code> — 방정식의 L<sub>e</sub> 항이 간접광 경로에 실려 들어온다), 반투명을 통과하며 색이 물드는 그림자 광선(<code>TraceTransparentVisibilityRay</code>), 러프니스를 경로를 따라 단조 증가시켜 코스틱 노이즈를 죽이는 approximate caustics까지 갖췄다.
+그런데 path를 아무렇게나 흘려보내면 노이즈가 오래 남는다. 01장에서 봤듯 몬테카를로의 오차는 표본값들이 얼마나 들쭉날쭉한가 — 통계 용어로 <strong>분산(variance)</strong> — 에 비례하므로, 표본을 늘리지 않고 노이즈를 줄이려면 표본 하나하나의 값이 덜 요동치게 만들어야 한다(분산 처리와는 무관한, 순수 통계 개념이다). 이를 위한 두 축은 프로덕션 패스 트레이서의 정석 조합이다. 첫째, <strong>NEE(next event estimation, 명시적 광원 샘플링)</strong> — 매 바운스에서 광원을 직접 하나 골라 그림자 광선을 쏜다. 광원 선택은 공간을 분할한 <strong>light grid</strong>(<code>LightGridLookup</code> → <code>EstimateLight</code> → <code>SelectLight</code> → <code>SampleLight</code>)로 가속된다. 둘째, <strong>MIS(multiple importance sampling)</strong> — 같은 빛을 광원 샘플링으로도, BRDF 샘플링으로도 셀 수 있으므로 <code>MISWeightPower(LightSample.Pdf, MaterialEval.Pdf)</code> 파워 휴리스틱으로 이중 계산 없이 두 전략의 장점을 합친다(<code>MISMode = 2</code>, Material과 Light 둘 다). 그 밖에 emissive 재질의 기여(<code>EnableEmissive = 1</code> — 방정식의 L<sub>e</sub> 항이 간접광 path에 실려 들어온다), 반투명을 통과하며 색이 물드는 그림자 광선(<code>TraceTransparentVisibilityRay</code>), path가 진행될수록 러프니스를 단조 증가시켜 코스틱 노이즈를 억제하는 approximate caustics까지 갖췄다.
 </p>
 
 <div class="callout callout-warn">
@@ -515,34 +515,38 @@ PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 생
 <p>커널은 bounce 0에서 광원을 맞힌 기여(=직접광)와 bounce 1 이상의 기여(=간접광)를 <strong>다른 버퍼에 나눠 담는다</strong>. 그리고 직접광은 <code>if (!IsStationary(LightId))</code> 조건으로 <strong>Static 라이트일 때만</strong> 라이트맵에 들어간다. Stationary 라이트의 직접광은 런타임에 동적으로 계산해야 하므로(그래야 라이트 색·세기를 게임 중에 바꿀 수 있다), 라이트맵에는 넣지 않고 별도의 <strong>섀도마스크</strong>(05장)로 가시성만 굽는다. 결과적으로 컬러 라이트맵 = <strong>간접광(모든 라이트) + 직접광(Static 전용)</strong>이다.</p>
 </div>
 
-<span class="section-eyebrow">04 — 분산 저감</span>
+<span class="section-eyebrow">04 — 노이즈 줄이기</span>
 </div>
 
-# 편향과 맞바꾼 속도 — Irradiance Caching과 Ray Guiding
+# 정확한 값을 조금 내주고 산 속도 — Irradiance Caching과 Ray Guiding
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
-순수 패스 트레이싱만으로도 답은 나오지만, 수렴이 느리다. GPULM은 두 개의 가속 장치를 얹는다. 첫째는 <strong>Irradiance Caching</strong>(기본 켜짐, <code>IrradianceCachingCommon.ush</code>). 첫 바운스가 도착한 지점의 간접 조도를 공간 해시 테이블(<code>ICHashTableFind</code>, 원자적 누적)에 기록해두고, 이후 경로가 근처에 다시 도착하면 <strong>경로를 이어가는 대신 캐시 값을 읽고 조기 종료</strong>한다. 모서리 근처 거부, 최대 조회 거리 제한, 뒷면 감지 같은 누출 방지 장치가 붙어 있다. Epic 문서 스스로 이 옵션을 "더 물리적으로 올바른 GI 강도를 주지만 <strong>약간의 편향(some biasing)</strong>이 생긴다"고 적어둔다 — 편향 없는 추정기에 일부러 작은 편향을 넣는 대신 수렴 속도를 얻는, 오프라인 렌더링의 고전적인 트레이드오프다.
+순수 패스 트레이싱만으로도 답은 나오지만, <strong>수렴이 느리다</strong>. 수렴이 느리다는 건 — 샘플 N을 쌓을수록 추정값이 참값으로 조여들긴 하는데, 노이즈가 1/√N으로만 줄어서 <strong>노이즈를 절반으로 줄이려면 샘플(=시간)이 4배, 1/10로 줄이려면 100배</strong> 필요하다는 뜻이다. 처음엔 그림이 빠르게 깨끗해지다가 갈수록 "시간은 쓰는데 좋아지질 않는" 구간에 들어간다. 게다가 작은 창 하나로만 빛이 드는 실내처럼 밝은 방향을 우연히 맞히기 힘든 씬에서는 대부분의 path가 0을 가져오고 가끔 큰 값이 터지므로 — 표본의 요동(분산)이 커서 — 필요한 샘플 수가 폭증한다. GPULM은 이 지점을 공략하는 가속 장치 두 개를 얹는다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-둘째는 <strong>First Bounce Ray Guiding</strong>(옵션). 본 베이크 전 시험 패스에서 텍셀 클러스터별로 "어느 방향이 밝은가"를 방향 빈에 기록하고(<code>InterlockedMax(RayGuidingLuminance[...])</code>), 그로부터 2D CDF를 만들어(<code>FirstBounceRayGuidingCDFBuild.usf</code>) 첫 바운스 방향 샘플링을 밝은 쪽 — 예컨대 실내 씬의 창문 — 으로 몰아준다. 코사인 가중만으로는 창문처럼 좁고 밝은 입사 방향을 잘 못 맞히는 문제를 중요도 샘플링으로 푸는 것이다.
+첫째는 <strong>Irradiance Caching</strong>(기본 켜짐, <code>IrradianceCachingCommon.ush</code>). 첫 바운스가 도착한 지점의 간접 irradiance를 공간 해시 테이블(<code>ICHashTableFind</code>)에 누적해 둔다 — 레코드는 "합산값 + 샘플 수" 형태라, 쌓일수록 그 위치의 표본 평균, 즉 수렴된 추정값이 되어 간다. 이후 다른 path가 그 근처에 도착하면 <strong>path를 이어가는 대신 캐시 값을 읽고 조기 종료</strong>한다. 이렇게 남의 계산 결과를 가져다 써도 되는 근거는 두 가지다. 하나, 디퓨즈 바운스에서 필요한 것은 "빛이 어느 방향에서 왔는가"가 아니라 코사인 가중 총량인 <strong>irradiance 하나뿐</strong>이다(01장에서 f<sub>r</sub>이 적분 밖으로 빠진 것과 같은 이유). 둘, <strong>간접광의 irradiance는 공간에서 부드럽게 변한다</strong> — 바닥 한 뼘 옆이라고 간접광이 급격히 달라지는 일은 드물기 때문에, 옆 지점에서 이미 수렴시켜 둔 값을 가져와도 거의 같은 답이 나온다. Ward의 1988년 고전 irradiance caching이 세운 가정 그대로다. 반대로 직접광은 그림자 경계에서 급변하므로 캐시 대상이 아니고, 부드러움 가정이 깨지기 쉬운 곳을 걸러내는 가드 — 모서리 근처 거부, 최대 조회 거리 제한, 뒷면 감지 — 가 붙어 있다. 물론 "근처 값으로 대신한다"는 것 자체가 작은 체계적 오차라서, Epic 문서 스스로 이 옵션을 "더 물리적으로 올바른 GI 강도를 주지만 <strong>약간의 편향(some biasing)</strong>이 생긴다"고 적어둔다. 언뜻 역설 같은 이 문장을 풀면 — <strong>"더 올바른 강도"</strong>는 캐시 레코드 하나에 수백 개의 샘플(<code>IrradianceCacheQuality = 128</code>)이 쌓이므로 같은 시간 안에 간접광의 <strong>밝기 총량</strong>이 훨씬 잘 수렴한다는 뜻이고, <strong>"약간의 편향"</strong>은 옆 지점의 값을 재사용하는 탓에 밝기의 <strong>공간적 분포</strong>가 캐시 반경만큼 뭉개진다는 — 샘플을 늘려도 사라지지 않는 — 오차를 뜻한다. 강도의 정확함을 얻고 분포의 해상도를 내주는 셈이다. 편향 없는 추정기에 일부러 작은 편향을 넣어 수렴 속도를 사는, 오프라인 렌더링의 고전적인 트레이드오프다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+둘째는 <strong>First Bounce Ray Guiding</strong>(옵션). 본 베이크 전 시험 패스에서 텍셀 클러스터별로 "어느 방향이 밝은가"를 방향 빈에 기록하고(<code>InterlockedMax(RayGuidingLuminance[...])</code>), 그로부터 2D CDF를 만들어(<code>FirstBounceRayGuidingCDFBuild.usf</code>) 첫 바운스 방향 샘플링을 밝은 쪽 — 예컨대 실내 씬의 창문 — 으로 몰아준다. 코사인 가중만으로는 창문처럼 좁고 밝은 입사 방향을 잘 못 맞히는 문제를 중요도 샘플링으로 푸는 것이다. Irradiance Caching과 달리 이쪽은 <strong>편향을 만들지 않는다</strong> — 손대는 것이 방향을 뽑는 확률 p뿐이고, 01장 2단계에서 봤듯 p로 뽑고 p로 나누면 기대값에서 약분되어 사라지기 때문이다. 참값으로의 수렴은 그대로 둔 채 노이즈만 줄이는 순수 중요도 샘플링이다.
 </p>
 
 <span class="section-eyebrow">05 — 저장</span>
 </div>
 
-# 무엇이 어떻게 구워지나 — 조도 + SH 방향성, 그리고 섀도마스크
+# 무엇이 어떻게 구워지나 — irradiance + SH directionality, 그리고 섀도마스크
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
-텍셀에 조도/π 스칼라(RGB)만 저장하면 문제가 하나 생긴다 — <strong>노멀맵이 죽는다.</strong> 라이트맵 UV의 버텍스 노멀 기준으로 구운 값 하나뿐이면, 픽셀 단위로 흔들리는 노멀맵이 간접광에 아무 영향을 못 준다. 그래서 GPULM은 색과 함께 <strong>빛이 주로 어느 방향에서 왔는지</strong>를 구면 조화 함수(SH) 계수로 굽는다. 베이크 중 매 샘플이 <code>FL2SHAndCorrection::AddIncomingRadiance</code>(<code>LightmapEncoding.ush</code>)로 휘도 × SH 기저를 누적하고, 마지막에 디퓨즈 컨볼루션과 정규화를 거쳐 <strong>L1(선형) 방향 벡터</strong>로 압축된다. 런타임에는 이 벡터와 픽셀 노멀의 내적이 밝기를 변조한다(06장).
+텍셀에 irradiance/π 스칼라(RGB)만 저장하면 문제가 하나 생긴다 — <strong>노멀맵이 죽는다.</strong> 라이트맵 UV의 버텍스 노멀 기준으로 구운 값 하나뿐이면, 픽셀 단위로 흔들리는 노멀맵이 간접광에 아무 영향을 못 준다. 그래서 GPULM은 색과 함께 <strong>빛이 주로 어느 방향에서 왔는지</strong>를 구면 조화 함수(SH) 계수로 굽는다. 베이크 중 매 샘플이 <code>FL2SHAndCorrection::AddIncomingRadiance</code>(<code>LightmapEncoding.ush</code>)로 휘도 × SH 기저를 누적하고, 마지막에 디퓨즈 컨볼루션과 정규화를 거쳐 <strong>L1(선형) 방향 벡터</strong>로 압축된다. 런타임에는 이 벡터와 픽셀 노멀의 내적이 밝기를 변조한다(06장).
 </p>
 
 <div class="data-table">
 <table>
 <tr><th>산출물</th><th>내용</th><th>인코딩 (LightmapEncoding.cpp)</th></tr>
-<tr><td><strong>HQ 라이트맵</strong> (텍스처 2장)</td><td>조도/π 색 + 휘도 방향성</td><td>Coeff0: <strong>LogLUVW</strong> — 크로마 U,V,W + LogL = Log2(L + BlackPoint), LogScale 11.5 (HDR을 8비트에)<br>Coeff1: L1 SH 방향 벡터 Dx,Dy,Dz + LogL 정밀도 보강용 Residual</td></tr>
+<tr><td><strong>HQ 라이트맵</strong> (텍스처 2장)</td><td>irradiance/π 색 + 휘도 directionality</td><td>Coeff0: <strong>LogLUVW</strong> — 크로마 U,V,W + LogL = Log2(L + BlackPoint), LogScale 11.5 (HDR을 8비트에)<br>Coeff1: L1 SH 방향 벡터 Dx,Dy,Dz + LogL 정밀도 보강용 Residual</td></tr>
 <tr><td><strong>LQ 라이트맵</strong> (모바일)</td><td>동일 정보의 저가형</td><td>Coeff2: LogRGB (SimpleLogScale 16), Coeff3: SH 방향 벡터</td></tr>
 <tr><td><strong>섀도마스크</strong></td><td>Stationary 라이트별 가시성</td><td>텍셀당 광선 128개(<code>StationaryLightShadowSamples</code>)로 가시성을 추적하는 전용 레이젠 셰이더(<code>StationaryLightShadowTracingMainRG</code>) → <strong>signed distance field</strong> 그림자 샘플로 변환. 채널당 라이트 1개, 최대 4개</td></tr>
 <tr><td><strong>Sky Bent Normal</strong></td><td>하늘이 보이는 평균 방향 + 가림 정도</td><td>그림자 드리우는 Stationary 스카이라이트용. xyz = 굽은 노멀, w = sqrt(길이)</td></tr>
@@ -552,7 +556,49 @@ PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 생
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-색이 <strong>로그 인코딩</strong>인 이유는 간단하다 — 조도는 HDR인데 라이트맵은 8비트 텍스처(+블록 압축)라서, 선형으로 담으면 어두운 영역이 계단진다. LogLUVW는 휘도만 로그 공간에 넣고 색도는 따로 담아, 넓은 다이내믹 레인지를 싸게 보존한다.
+표의 HQ 라이트맵 줄이 압축적이라 풀어서 보자. 텍셀이 담아야 할 정보는 딱 두 가지다 — (1) 01장에서 계산한 <strong>irradiance/π 라는 HDR RGB 색 하나</strong>, (2) 그 빛이 <strong>주로 어느 방향에서 왔는지</strong>. 그런데 라이트맵은 8비트 텍스처(+블록 압축)라서 HDR 색을 그대로 못 담는다. 그래서 색을 <strong>휘도(luminance) × 색도(chromaticity)</strong>로 쪼갠다. 휘도 L은 "얼마나 밝은가"라는 스칼라 하나 — HDR이라 범위가 넓으니 <strong>log₂로 압축해 알파 채널에</strong>(LogL) 넣는다. 색도 UVW는 밝기를 제거한 순수한 색 비율 — 항상 0~1이라 sqrt 감마만 입혀 RGB 채널에 넣는다. 즉 <strong>"irradiance/π는 어디 있나"의 답은 한 채널이 아니라, 밝기는 Coeff0의 A(LogL)에, 색은 Coeff0의 RGB(UVW)에 나뉘어 있다.</strong>
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+<strong>방향(directionality)은 두 번째 텍스처의 몫이다.</strong> 방향별로 색까지 저장하면 용량이 폭발하니, "빛의 색은 방향과 무관하고 <strong>밝기만 방향을 탄다</strong>"고 근사한다 — 그래서 베이크 중 매 샘플이 자기 <strong>휘도 × SH 기저(입사 방향)</strong>를 누적한다(<code>FL2SHAndCorrection::AddIncomingRadiance</code>). 이렇게 쌓인 것은 "휘도의 방향 분포"를 요약한 SH이고, 인코딩 시 디퓨즈 컨볼루션과 정규화(Correction으로 나눔)를 거쳐 <strong>L1(선형 밴드) 방향 벡터 (Dx, Dy, Dz) 하나로 압축</strong>되어 Coeff1의 RGB에 담긴다. 직관적으로는 <strong>"휘도로 가중 평균한 주 입사 방향"</strong>이며, 픽셀 노멀이 베이크 기준 노멀과 같을 때 대략 1이 나오도록 정규화돼 있어 — 노멀맵이 노멀을 빛 쪽으로 틀면 1보다 커지고, 반대쪽으로 틀면 0을 향해 떨어진다. Coeff1의 A 채널은 LogL의 정밀도를 보강하는 Residual이다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+그러면 06장의 런타임 코드가 정확히 이 세 조각을 도로 조립하는 것임이 보인다.
+</p>
+
+<div class="eq-anno-wrap">
+<div class="formula-label">HQ 라이트맵 런타임 재조립 (= 06장 GetLightMapColorHQ):</div>
+<div class="eq-anno">
+<span class="term">
+<span class="t-formula">Color</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M4 5 Q 28 2.5, 54 5.5 T 96 4" fill="none" stroke="#4a4038" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#4a4038;">픽셀의 디퓨즈<br>간접광 (ρ 곱하기 전)</span>
+</span>
+<span class="op">=</span>
+<span class="term">
+<span class="t-formula"><i>L</i></span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M5 4 Q 32 6.5, 58 3.5 T 95 5" fill="none" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#b45309;">휘도 — Coeff0.A의 LogL을<br>exp2로 복원한 밝기</span>
+</span>
+<span class="op">·</span>
+<span class="term">
+<span class="t-formula">Directionality</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M3 4.5 Q 25 7, 50 4 T 97 5.5" fill="none" stroke="#0a8f72" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#0a8f72;">방향 보정 — Coeff1의 SH 벡터 ·<br>픽셀 노멀 (기준 노멀에서 ≈1)</span>
+</span>
+<span class="op">·</span>
+<span class="term">
+<span class="t-formula">UVW</span>
+<svg class="t-line" viewBox="0 0 100 9" preserveAspectRatio="none"><path d="M4 4 Q 30 6, 56 3.5 T 96 5" fill="none" stroke="#6d28d9" stroke-width="2" stroke-linecap="round"/></svg>
+<span class="t-label" style="color:#6d28d9;">색도 — Coeff0.RGB,<br>밝기 없는 색 비율</span>
+</span>
+</div>
+<div class="formula-note">L × UVW = 구웠던 irradiance/π. Directionality는 픽셀 노멀에 따라 그 밝기를 재분배하는 보정 계수다.</div>
+</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+정리하면 — 휘도만 로그 공간에 넣는 LogLUVW 분해 덕에 <strong>HDR 다이내믹 레인지를 8비트에 싸게 보존</strong>하고(선형으로 담으면 어두운 영역이 계단진다), 방향은 휘도에 대해서만 벡터 하나로 요약해 <strong>텍스처 두 장</strong>이라는 예산을 지킨다.
 </p>
 
 <span class="section-eyebrow">06 — 런타임</span>
@@ -565,13 +611,28 @@ PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 생
 이제 서두에서 던진 질문의 후반부 차례다 — <strong>구운 값은 최종 라이팅의 어디에 더해지는가?</strong> 답은 베이스 패스에 있다. <code>BasePassPixelShader.usf</code>의 <code>GetPrecomputedIndirectLightingAndSkyLight()</code>가 <code>LightmapCommon.ush</code>의 디코더를 호출한다.
 </p>
 
-<div class="code-block"><span class="code-lang">LightmapCommon.ush — GetLightMapColorHQ (요지)</span><span class="cm">// 텍스처 2장에서 LogL과 SH 방향 벡터를 복원한 뒤:</span>
-<span class="kw">float</span> Directionality = max(<span class="num">0.0</span>, dot(SH, <span class="kw">float4</span>(WorldNormal.yzx, <span class="num">1</span>)));  <span class="cm">// 픽셀 노멀 × 구운 방향</span>
-<span class="kw">float</span> Luma  = exp2(LogL * LogScale) - LogBlackPoint;
-<span class="kw">float3</span> Color = Luma * Directionality * UVW;      <span class="cm">// ← OutDiffuseLighting</span></div>
+<div class="code-block"><span class="code-lang">LightmapCommon.ush — GetLightMapColorHQ (요지)</span><span class="cm">// Coeff0.RGB → UVW(색도), Coeff0.A → LogL(로그 휘도), Coeff1 → SH(방향 벡터)를 읽은 뒤:</span>
+<span class="kw">half</span>  L = exp2(LogL) - LogBlackPoint;                          <span class="cm">// 로그 휘도 → 선형 휘도: 텍셀이 구운 밝기 총량</span>
+<span class="kw">half</span>  Directionality = max(<span class="num">0.0</span>, dot(SH, <span class="kw">float4</span>(WorldNormal.yzx, <span class="num">1</span>)));  <span class="cm">// 픽셀 노멀과 주 입사 방향의 정렬도</span>
+<span class="kw">half</span>  Luma  = L * Directionality;                              <span class="cm">// "이 노멀이 실제로 받을 밝기"로 재분배</span>
+<span class="kw">half3</span> Color = Luma * UVW;                                      <span class="cm">// 색도를 입혀 RGB 완성 → OutDiffuseLighting</span></div>
 
 <p style="color:var(--text2);line-height:1.85;">
-05장에서 구운 SH가 쓰이는 지점이 바로 여기다 — <strong>노멀맵이 적용된 픽셀 단위 월드 노멀</strong>과 구운 방향 벡터의 내적이 밝기를 조절하므로, 라이트맵 해상도보다 훨씬 고운 노멀 디테일이 간접광에 살아난다(방향성을 끄면 상수 0.6으로 대체된다). 이렇게 나온 <code>DiffuseIndirectLighting</code>은 최종적으로 이렇게 합쳐진다.
+한 줄씩 뜻을 붙이면, 05장에서 쪼갠 세 조각이 도로 조립되는 과정이다. <strong>LogL</strong>은 Coeff0 알파 채널에 든 로그 압축 휘도이고, exp2로 풀면 <strong>L = 이 텍셀이 구운 irradiance/π의 밝기 총량</strong>(정확히는 베이크 기준 노멀이 받는 밝기)이 된다. 그런데 이 밝기는 텍셀당 하나뿐인데, 실제 픽셀의 노멀은 노멀맵 때문에 텍셀 안에서도 제각각이다 — <strong>Directionality를 곱하는 이유가 이것이다.</strong> SH 벡터(휘도 가중 주 입사 방향)와 픽셀 노멀의 내적은 "이 픽셀이 빛이 오는 쪽을 얼마나 향하고 있나"이고, 기준 노멀에서 ≈1로 정규화돼 있으므로 노멀이 빛 쪽으로 기울면 L보다 밝게, 반대쪽이면 어둡게 <strong>재분배</strong>된다. 이 곱이 없으면 노멀맵이 간접광에 아무 영향을 못 준다(실제로 directionality를 끄면 상수 0.6으로 대체된다). 마지막의 <strong>UVW</strong>는 밝기가 제거된 순수 색 비율이라, 곱하는 순간 RGB 색이 완성된다. 요약하면 <strong>Color = 밝기(L) × 방향 보정(Directionality) × 색(UVW)</strong> — 05장 재조립 공식 그대로다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+모바일 등 저사양 경로가 쓰는 <strong>LQ 라이트맵</strong>의 디코더는 같은 파일 바로 옆에 있다. HQ에서 깎은 것은 세 가지다. (1) <strong>휘도/색도 분리를 포기했다</strong> — 로그 인코딩한 색 <strong>LogRGB</strong>를 통째로 저장하고, 휘도가 필요하면 <code>Luminance(LogRGB)</code>로 그 자리에서 근사한다. 로그값들의 가중합은 "진짜 휘도의 로그"와 수학적으로 같지 않지만, 알파 채널 하나와 인코딩 단계를 아끼는 싼 근사다. (2) <strong>HDR 범위와 정밀도를 줄였다</strong> — HQ의 넓은 가변 스케일(LogScale 11.5)과 Residual 정밀도 보강 대신 exp2(−8~+8)의 고정 범위만 쓴다. (3) <strong>부가 데이터를 버렸다</strong> — sky bent normal과 AO 마스크는 <code>#if HQ_TEXTURE_LIGHTMAP</code> 게이트 안에 있어 LQ 경로에서는 아예 샘플링되지 않는다. 셋 다 근거는 같다 — half 정밀도 ALU와 대역폭이 빠듯하고 화면이 작아 차이가 잘 안 보이는 모바일에서는 <strong>"티 안 나는 것부터 깎는다"</strong>. 그 대신 directionality 내적과 출력 경로는 HQ와 완전히 같아서, 노멀맵 반응이라는 핵심 기능은 모바일에서도 유지된다.
+</p>
+
+<div class="code-block"><span class="code-lang">LightmapCommon.ush — GetLightMapColorLQ (요지)</span><span class="kw">half3</span> LogRGB = Lightmap0.rgb * LightMapScale[<span class="num">0</span>].xyz + LightMapAdd[<span class="num">0</span>].xyz;
+<span class="kw">half</span>  LogL  = Luminance(LogRGB);                          <span class="cm">// LogRGB에서 휘도 추출</span>
+<span class="kw">half</span>  L     = exp2(LogL * <span class="num">16</span> - <span class="num">8</span>) - <span class="num">0.00390625</span>;          <span class="cm">// SimpleLogScale 16, exp2(-8) 블랙포인트</span>
+<span class="kw">half</span>  Directionality = max(<span class="num">0.0</span>, dot(SH, <span class="kw">float4</span>(WorldNormal.yzx, <span class="num">1</span>)));  <span class="cm">// HQ와 동일</span>
+<span class="kw">half3</span> Color = LogRGB * (L * Directionality / max(<span class="num">0.00001</span>, LogL));       <span class="cm">// ← OutDiffuseLighting</span></div>
+
+<p style="color:var(--text2);line-height:1.85;">
+호출부도 나란하다 — <code>GetPrecomputedIndirectLightingAndSkyLight</code> 안에서 <code>#elif HQ_TEXTURE_LIGHTMAP</code>이 <code>GetLightMapColorHQ</code>를, <code>#elif LQ_TEXTURE_LIGHTMAP</code>이 <code>GetLightMapColorLQ</code>를 부르고, 어느 쪽이든 같은 <code>OutDiffuseLighting</code>으로 합류한다. 이렇게 나온 <code>DiffuseIndirectLighting</code>은 최종적으로 이렇게 합쳐진다.
 </p>
 
 <div class="code-block"><span class="code-lang">BasePassPixelShader.usf (요지)</span>GBuffer.DiffuseColor = BaseColor - BaseColor * Metallic;     <span class="cm">// 알베도 ρ</span>
@@ -581,7 +642,7 @@ DiffuseColor += (DiffuseIndirectLighting * DiffuseColorForIndirect   <span class
                * AOMultiBounce(GBuffer.BaseColor, DiffOcclusion);</div>
 
 <p style="color:var(--text2);line-height:1.85;">
-01장의 공식이 완성되는 순간이다 — 베이크가 남겨둔 ρ가 여기서 곱해져 <strong>ρ × (조도/π)</strong>, 즉 램버시안 항 (ρ/π)·E(x)가 된다. 방정식 관점으로 최종 픽셀을 분해하면 이렇다.
+01장의 공식이 완성되는 순간이다 — 베이크가 남겨둔 ρ가 여기서 곱해져 <strong>ρ × (irradiance/π)</strong>, 즉 램버시안 항 (ρ/π)·E(x)가 된다. 방정식 관점으로 최종 픽셀을 분해하면 이렇다.
 </p>
 
 <div class="eq-anno-wrap">
@@ -624,6 +685,65 @@ DiffuseColor += (DiffuseIndirectLighting * DiffuseColorForIndirect   <span class
 <p>라이트맵 값은 <code>DiffuseColor</code>에만 곱해지고 <code>SpecularColor</code> 경로에는 등장하지 않는다. 뷰 의존 항은 베이크 시점에 계산 자체가 불가능하기 때문이다(ω<sub>o</sub>를 모른다). 정적 라이팅 씬에서 금속·유리가 리플렉션 캡처나 Lumen 리플렉션을 따로 필요로 하는 이유가 이것이다. 참고로 경로의 <strong>중간</strong> 바운스에서는 글로시 재질도 온전히 평가된다(<code>PathTracingGlossy.ush</code>) — 스페큘러 표면을 <em>거쳐 온</em> 빛은 라이트맵에 담기지만, 텍셀에서 <em>나가는</em> 스페큘러는 담기지 않는다.</p>
 </div>
 
+<p style="color:var(--text2);line-height:1.85;">
+여기까지가 컬러 라이트맵의 여정이다. 위계를 분명히 하면 — <strong>렌더링 방정식의 적분 결과를 담는 본체는 어디까지나 방금 본 컬러 라이트맵(HQ/LQ)</strong>이고, 05장 표의 나머지는 본체가 못 다루는 한 가지 상황씩을 보완하는 전용 데이터다. 섀도마스크는 "Stationary 라이트의 그림자", sky bent normal은 "스카이라이트의 가림", AO 마스크는 "머티리얼 연출 재료"를 맡는다. 각각이 실제로 어디에 어떻게 적용되는지도 코드로 짚어두자.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+<strong>① 섀도마스크 — GBuffer에 실려, 라이트별로 직접광을 감쇠한다.</strong> 텍스처에 저장된 것은 그림자 값 자체가 아니라 <strong>그림자 경계까지의 부호 있는 거리(signed distance field)</strong>다. 베이스 패스가 이 거리를 페넘브라 폭으로 스케일해 0~1 그림자 값으로 되살린 뒤, GBuffer의 <code>PrecomputedShadowFactors</code>(GBufferE)에 싣는다.
+</p>
+
+<div class="code-block"><span class="code-lang">LightmapCommon.ush — GetPrecomputedShadowMasks</span>DistanceField = Texture2DSample(LightmapResourceCluster.StaticShadowTexture, ..., ShadowMapCoordinate);
+<span class="kw">float4</span> DistanceFieldBias = -<span class="num">0.5</span> * InvUniformPenumbraSizes + <span class="num">0.5</span>;
+<span class="kw">half4</span> ShadowFactors = saturate(DistanceField * InvUniformPenumbraSizes + DistanceFieldBias);  <span class="cm">// 거리 → 0~1 그림자</span>
+<span class="kw">return</span> GetLightmapData(LightmapDataIndex).StaticShadowMapMasks * ShadowFactors * ShadowFactors;
+
+<span class="cm">// BasePassPixelShader.usf — GBuffer에 기록</span>
+GBuffer.PrecomputedShadowFactors = GetPrecomputedShadowMasks(...);</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+소비처는 디퍼드 라이팅 패스다. Stationary 라이트마다 배정받은 채널 마스크(<code>ShadowMapChannelMask</code>)로 RGBA 4채널 중 자기 것을 내적으로 뽑아 쓴다 — <strong>한 오브젝트에 그림자를 드리우는 Stationary 라이트가 최대 4개로 제한되는 이유가 바로 이 4채널이다.</strong>
+</p>
+
+<div class="code-block"><span class="code-lang">DeferredLightingCommon.ush — GetShadowTermsBase</span><span class="kw">half</span> StaticShadowing = lerp(<span class="num">1</span>, dot(PrecomputedShadowFactors, LightData.ShadowMapChannelMask), UsesStaticShadowMap);
+<span class="kw">...</span>
+OutShadow.SurfaceShadow = lerp(LightAttenuation.x, StaticShadowing, DynamicShadowFraction);  <span class="cm">// 동적 그림자와 블렌드</span></div>
+
+<p style="color:var(--text2);line-height:1.85;">
+즉 섀도마스크는 06장 최종 픽셀 공식에서 <strong>L<sub>direct</sub>를 곱셈으로 감쇠하는 항</strong>이다. 빛의 색·세기는 런타임의 라이트에서 오고, 가려짐은 베이크에서 오는 분업 구조다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+<strong>② Sky bent normal — 스카이라이트의 룩업 방향을 구부리고, 가려진 만큼 어둡게 한다.</strong> 먼저 이게 없으면 어떻게 되는지부터 보자. 스카이라이트는 하늘 전체를 SH 몇 개로 요약해 둔, <strong>씬 어디서나 똑같이 읽히는 "무한히 먼 빛"</strong>이다. 이 SH 자체에는 씬 지오메트리에 대한 가림 정보가 전혀 없어서, 그냥 두면 모든 픽셀이 자기 노멀 방향으로 하늘 SH를 읽는다 — <strong>처마 밑이든 다리 아래든, 노멀이 위를 향하기만 하면 탁 트인 벌판과 똑같은 하늘빛을 받아 파랗게 떠 버린다</strong>(스카이라이트 빛샘).
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+그래서 GPULM은 베이크 중 텍셀마다 하늘을 향해 가시성 광선을 쏘아, 컬러 라이트맵과는 <strong>별도로</strong> 두 가지를 굽는다. (1) 광선이 <strong>실제로 하늘에 닿은 방향들의 평균 벡터</strong> — 노멀을 "하늘이 보이는 쪽"으로 구부린 것 같다고 해서 <strong>bent normal(굽은 노멀)</strong>이다. (2) 하늘에 닿은 광선의 <strong>비율</strong> — 벡터의 길이로 함께 저장되며 런타임의 <code>SkyVisibility</code>가 된다. 처마 밑 텍셀이라면 하늘이 바깥쪽 틈으로만 보이니 bent normal은 위가 아니라 그 <strong>틈을 향하고</strong>, 길이는 거의 0에 가깝다. 런타임은 이 둘로 위의 문제를 정확히 보정한다 — SH 룩업 방향을 노멀 대신 bent normal로 바꿔 <strong>"빛이 실제로 들어오는 방향의 하늘색"</strong>을 읽고, 결과에 <code>SkyVisibility</code>를 곱해 <strong>가려진 만큼 어둡게</strong> 한다. 처마 밑은 SkyVisibility ≈ 0이라 하늘빛이 거의 0으로 죽는다.
+</p>
+
+<div class="code-block"><span class="code-lang">BasePassPixelShader.usf — GetSkyLighting</span><span class="kw">float4</span> BentNormalAndOcclusion = GetSkyBentNormalAndOcclusion(...);    <span class="cm">// rgb×2-1, a² 디코드</span>
+NormalizedBentNormal = normalize(BentNormalAndOcclusion.xyz);
+SkyVisibility        = BentNormalAndOcclusion.w;
+SkyLightingNormal = lerp(NormalizedBentNormal, WorldNormal, BentNormalWeightFactor);  <span class="cm">// 노멀 대신 굽은 노멀로 룩업</span>
+<span class="kw">float3</span> DiffuseLookup = GetEffectiveSkySHDiffuse(SkyLightingNormal) * ResolvedView.SkyLightColor.rgb;
+OutDiffuseLighting += DiffuseLookup * (SkyVisibility * GeometryTerm);                 <span class="cm">// 가려진 만큼 감쇠</span></div>
+
+<p style="color:var(--text2);line-height:1.85;">
+결과가 <code>OutDiffuseLighting</code>에 더해지므로, 이것 역시 라이트맵과 같은 <strong>디퓨즈 간접광 자리</strong>로 합류해 알베도가 곱해진다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+<strong>③ AO 머티리얼 마스크 — 유일하게 라이팅에 자동으로 곱해지지 않는 산출물.</strong> sqrt 인코딩을 복원한 값이 <code>MaterialParameters.AOMaterialMask</code>에 담겨 머티리얼 그래프의 <strong>PrecomputedAOMask 노드</strong>로 노출될 뿐이다. 구석진 곳에만 먼지·이끼 텍스처를 섞는 식으로, 어디에 어떻게 곱할지는 아티스트가 정한다.
+</p>
+
+<div class="code-block"><span class="code-lang">LightmapCommon.ush + HLSLMaterialTranslator.cpp</span><span class="cm">// 셰이더 — sqrt 인코딩 복원 후 머티리얼 파라미터로</span>
+TextureValue = Texture2DSample(LightmapResourceCluster.AOMaterialMaskTexture, ..., LightmapUV).x;
+<span class="kw">return</span> TextureValue * TextureValue;
+MaterialParameters.AOMaterialMask = GetAOMaterialMask(...);
+
+<span class="cm">// C++ — 머티리얼의 PrecomputedAOMask 노드가 컴파일되면 나오는 코드</span>
+FString CodeChunk = FString::Printf(TEXT("Parameters.AOMaterialMask"));</div>
+
 <span class="section-eyebrow">07 — 볼류메트릭 라이트맵</span>
 </div>
 
@@ -638,6 +758,22 @@ DiffuseColor += (DiffuseIndirectLighting * DiffuseColorForIndirect   <span class
 <img src="/assets/img/post/gpu-lightmass/volumetric-lightmap-sh-sketch-white.webp" width="1254" height="1254" style="display:block;width:100%;height:auto;" alt="흰 배경의 연필 스케치로 그린 지오메트리 주변 적응형 프로브와 SH 기반 볼류메트릭 라이트맵">
 <div class="scene-cap">볼류메트릭 라이트맵은 지오메트리 근처에 프로브를 더 조밀하게 배치하고, 각 지점에서 구운 전방향 입사광을 L2 SH 계수로 저장한다.</div>
 </div>
+
+<p style="color:var(--text2);line-height:1.85;">
+런타임 적용 코드도 06장과 나란히 놓인다. 디퓨즈는 오브젝트 위치로 브릭 텍스처 UV를 계산한 뒤(<code>ComputeVolumetricLightmapBrickTextureUVs</code>) 3밴드 SH를 조립해 노멀 방향으로 평가한다 — 끝에 π로 나누는 것까지 표면 라이트맵과 같은 형태다.
+</p>
+
+<div class="code-block"><span class="code-lang">BasePassPixelShader.usf — PRECOMPUTED_IRRADIANCE_VOLUME_LIGHTING</span>FThreeBandSHVectorRGB IrradianceSH = GetVolumetricLightmapSH3(VolumetricLightmapBrickTextureUVs);
+FThreeBandSHVector DiffuseTransferSH = CalcDiffuseTransferSH3(DiffuseDir, <span class="num">1</span>);
+OutDiffuseLighting = max(<span class="kw">float3</span>(<span class="num">0</span>,<span class="num">0</span>,<span class="num">0</span>), DotSH3(IrradianceSH, DiffuseTransferSH)) / PI;  <span class="cm">// 역시 디퓨즈 항, /π</span></div>
+
+<p style="color:var(--text2);line-height:1.85;">
+Stationary 디렉셔널 라이트의 구운 그림자도 마찬가지다 — 정적 오브젝트가 섀도마스크 <strong>텍스처</strong>에서 읽던 것을 움직이는 오브젝트는 <strong>브릭 텍스처</strong>에서 읽는다는 점만 다르고, 이후는 06장에서 본 것과 같은 통로(<code>PrecomputedShadowFactors</code>의 첫 채널 → 디퍼드 라이팅의 <code>StaticShadowing</code>)로 흘러간다.
+</p>
+
+<div class="code-block"><span class="code-lang">LightmapCommon.ush — GetPrecomputedShadowMasks (움직이는 오브젝트 경로)</span>DirectionalLightShadowing = GetVolumetricLightmapDirectionalLightShadowing(VolumetricLightmapBrickTextureUVs);
+<span class="cm">// Directional light is always packed into the first static shadowmap channel</span>
+<span class="kw">return</span> <span class="kw">half4</span>(DirectionalLightShadowing, <span class="num">1</span>, <span class="num">1</span>, <span class="num">1</span>);</div>
 
 <span class="section-eyebrow">08 — Lumen과의 차이</span>
 </div>
@@ -680,12 +816,12 @@ Lumen도 결국 같은 적분 ∫ f<sub>r</sub>·L<sub>i</sub>·cosθ dω를 푼
 <div class="vs-grid">
 <div class="vs-card bake">
 <h4>GPU Lightmass — 오차는 노이즈</h4>
-<p>몬테카를로 패스 트레이싱은 (러시안 룰렛 보정까지 포함해) 기대값이 참값과 일치하는, <strong>사실상 편향 없는(unbiased) 추정기</strong>다. 셰이더 스스로 "Reference path tracing"이라 자칭한다. 틀린 값이 아니라 흔들리는 값이고, 샘플을 늘리면 오차는 0으로 수렴한다.</p>
+<p>몬테카를로 패스 트레이싱은 (러시안 룰렛 보정까지 포함해) 기대값이 참값과 일치하는, <strong>사실상 편향 없는(unbiased) 추정기</strong>다. 셰이더 스스로 "Reference path tracing"이라 자칭한다. 틀린 값이 아니라 흔들리는 값이고, 샘플을 늘리면 오차는 0으로 수렴한다. 저울로 치면 <strong>영점은 정확한데 손이 떨리는 저울</strong>이다.</p>
 <p>편향이 끼어드는 지점은 손에 꼽는다: 기본으로 켜져 있는 Irradiance Caching(Epic 표현으로 "some biasing"), MaxBounces=32 상한, approximate caustics의 러프니스 클램프, 그리고 디노이저. 전부 "얼마나 빨리 수렴하나"의 문제지 "어디로 수렴하나"를 크게 바꾸지는 않는다.</p>
 </div>
 <div class="vs-card lumen">
 <h4>Lumen — 오차는 체계적 편향</h4>
-<p>distance field 지오메트리, 평면 카드 투영, 캐시 룩업, 1/16 해상도 프로브 보간, 10프레임 시간 누적 — 모두 샘플을 늘려도 사라지지 않는 <strong>구조적 근사</strong>다.</p>
+<p>distance field 지오메트리, 평면 카드 투영, 캐시 룩업, 1/16 해상도 프로브 보간, 10프레임 시간 누적 — 모두 샘플을 늘려도 사라지지 않는 <strong>구조적 근사</strong>다. 저울로 치면 <strong>떨리지는 않지만 영점이 밀린 저울</strong>이다.</p>
 <p>소스에는 안정성을 위한 비물리적 장치가 명시적으로 들어 있다: 다중 바운스 폭주를 막으려 알베도를 0.99로 클램프(<code>LumenDiffuseColorBoost.ush</code> — "don't allow it to reach 1 as multi-bounce would explode"), 파이어플라이를 죽이며 에너지를 잃는 ray intensity 클램프, 가림 부족을 가리려 <strong>일부러 스카이라이트를 새게 하는</strong> <code>GetSkylightLeaking</code>, 캐시 자기참조 피드백을 끊는 최소 트레이스 거리 등.</p>
 </div>
 </div>
@@ -707,7 +843,7 @@ Lumen도 결국 같은 적분 ∫ f<sub>r</sub>·L<sub>i</sub>·cosθ dω를 푼
 <div class="gplm-post">
 <div class="summary-box">
 <h3>GPU Lightmass 한 장 요약</h3>
-<p><strong>공식:</strong> 렌더링 방정식 L<sub>o</sub> = L<sub>e</sub> + ∫ f<sub>r</sub>·L<sub>i</sub>·cosθ dω의 적분항을, 라이트맵 텍셀을 albedo=1 램버시안 표면 삼아 <strong>텍셀당 512개 몬테카를로 경로</strong>(DXR, NEE + MIS 파워 휴리스틱, 러시안 룰렛, 최대 32바운스)로 추정한다. 텍셀에 저장되는 값은 <strong>조도/π</strong>(알베도 제외)와 L1 SH 방향성 계수이며, LogLUVW로 HDR 인코딩된다.</p>
+<p><strong>공식:</strong> 렌더링 방정식 L<sub>o</sub> = L<sub>e</sub> + ∫ f<sub>r</sub>·L<sub>i</sub>·cosθ dω의 적분항을, 라이트맵 텍셀을 albedo=1 램버시안 표면 삼아 <strong>텍셀당 512개 몬테카를로 경로</strong>(DXR, NEE + MIS 파워 휴리스틱, 러시안 룰렛, 최대 32바운스)로 추정한다. 텍셀에 저장되는 값은 <strong>irradiance/π</strong>(알베도 제외)와 L1 SH directionality 계수이며, LogLUVW로 HDR 인코딩된다.</p>
 <p><strong>방정식에서의 자리:</strong> 베이스 패스에서 <code>DiffuseColor(ρ) × 라이트맵</code>으로 <strong>디퓨즈 항에만</strong> 더해진다 — 간접광은 전부, 직접광은 Static 라이트 것만. Stationary 직접광은 별도 섀도마스크로 가시성만 굽고 런타임에 계산하며, 스페큘러 간접광은 뷰를 모르는 베이크의 원리적 한계로 라이트맵에 없다. 움직이는 오브젝트는 같은 커널로 구운 볼류메트릭 라이트맵(3밴드 SH 브릭)이 같은 디퓨즈 자리에 공급된다.</p>
 <p><strong>Lumen과의 차이:</strong> Lumen은 같은 적분을 실시간에 풀기 위해 지오메트리(SDF)·히트 셰이딩(Surface Cache 룩업)·적분(1/16 해상도 프로브 + 10프레임 시간 누적)·바운스(캐시 피드백 루프)를 전부 근사로 바꿨고, 알베도 클램프·스카이라이트 leaking 같은 비물리적 안정화 장치를 명시적으로 갖고 있다. <strong>방정식 충실도로는 GPU Lightmass가 더 물리 기반이지만</strong>, 그 정확도는 정적 씬·디퓨즈 항이라는 좁은 정의역 안에서만 유효하다. 둘은 우열 관계가 아니라, 같은 방정식을 서로 다른 자리에서 잘라낸 근사다.</p>
 </div>
