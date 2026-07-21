@@ -5,14 +5,13 @@ icon: paper
 permalink: gpu-lightmass
 categories: Rendering
 tags: [ComputerGraphics, Rendering, UnrealEngine, GlobalIllumination, GPULightmass, PathTracing, Lightmap, Lumen, MonteCarlo]
-excerpt: "GPU Lightmass는 라이트맵 텍셀 하나하나를 '카메라'로 삼아 DXR 하드웨어 레이 트레이싱으로 몬테카를로 패스 트레이싱을 돌리는 오프라인 베이커다. 이 글은 UE 5.8 소스(LightmapPathTracing.usf)를 따라 텍셀당 512개 경로가 NEE·MIS·러시안 룰렛으로 렌더링 방정식의 적분항을 추정하는 과정, 그 결과가 irradiance/π + SH directionality로 인코딩되어 베이스 패스의 디퓨즈 항에만 곱해지는 경로를 코드로 추적한다. 마지막으로 Surface Cache 피드백 루프로 GI를 근사하는 Lumen과 나란히 놓고 — 오차가 '노이즈'로 나타나는 쪽과 '체계적 편향'으로 나타나는 쪽 — 어느 쪽이 렌더링 방정식에 더 충실한지 따져본다."
+excerpt: "GPU Lightmass는 라이트맵 텍셀 하나하나를 '카메라'로 삼아 DXR 하드웨어 레이 트레이싱으로 몬테카를로 패스 트레이싱을 돌려 라이트맵을 굽는 오프라인 툴이다. 이 글은 UE 5.8 소스(LightmapPathTracing.usf)를 따라 텍셀당 512개 경로가 NEE·MIS·러시안 룰렛으로 렌더링 방정식의 적분항을 추정하는 과정, 그 결과가 irradiance/π + SH directionality로 인코딩되어 베이스 패스의 디퓨즈 항에만 곱해지는 경로를 코드로 추적한다. 마지막으로 Surface Cache 피드백 루프로 GI를 근사하는 Lumen과 나란히 놓고(오차가 '노이즈'로 나타나는 쪽과 '체계적 편향'으로 나타나는 쪽) 어느 쪽이 렌더링 방정식에 더 충실한지 따져본다."
 back_color: "#ffffff"
 img_name: "volumetric-lightmap-sh-sketch-white.webp"
 toc: false
 show: true
 new: true
 series: -1
-index: 22
 ---
 
 >
@@ -200,6 +199,37 @@ index: 22
 .gplm-post .summary-box h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; color: var(--text); }
 .gplm-post .summary-box p { margin: 0 0 12px; font-size: 15px; line-height: 1.85; color: var(--text2); }
 .gplm-post .summary-box p:last-child { margin-bottom: 0; }
+/* 주석(footnote) — 번호를 누르면 설명이 펼쳐지고, 다시 누르면 접힌다 (순수 CSS 토글, JS 없음) */
+.gplm-post .fn-toggle { position: absolute; left: -9999px; width: 0; height: 0; opacity: 0; }
+.gplm-post .fn-ref {
+  cursor: pointer;
+  vertical-align: super;
+  font-size: 0.7em;
+  line-height: 0;
+  font-weight: 700;
+  color: var(--accent2);
+  padding: 0 1px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.gplm-post .fn-ref::before { content: "["; }
+.gplm-post .fn-ref::after  { content: "]"; }
+.gplm-post .fn-ref:hover { text-decoration: underline; }
+.gplm-post .fn-toggle:checked + .fn-ref { color: var(--accent); }
+.gplm-post .fn-body { display: none; }
+.gplm-post .fn-toggle:checked ~ .fn-body {
+  display: block;
+  margin: 10px 0;
+  padding: 12px 16px;
+  background: rgba(109,40,217,0.06);
+  border-left: 3px solid var(--accent2);
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--text2);
+  line-height: 1.75;
+  font-weight: 400;
+}
+.gplm-post .fn-body strong { color: var(--accent2); }
 </style>
 
 <div class="gplm-post">
@@ -210,11 +240,11 @@ index: 22
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
-라이트맵을 "굽는다(bake)"는 표현은 오해를 부른다. 마치 미리 그려둔 그림자 텍스처를 붙이는 것처럼 들리지만, 실제로 일어나는 일은 훨씬 근본적이다 — <strong>라이트맵 텍셀 하나하나에 대해 렌더링 방정식의 적분을 수치적으로 푸는 것</strong>이다. UE5의 GPU Lightmass(GPULM)는 이 적분을 DXR 하드웨어 레이 트레이싱 위의 <strong>몬테카를로 패스 트레이싱</strong>으로 계산한다. 텍셀 하나당 기본 512개의 광선 경로를 쏘고, 각 경로가 씬을 최대 32번 튕기며 모아온 빛을 평균 내서, 그 값을 텍스처에 저장한다. 화면 픽셀 대신 라이트맵 텍셀을 "카메라"로 삼는 오프라인 렌더러인 셈이다.
+라이트맵을 "굽는다(bake)"는 표현은 오해를 부른다. 마치 미리 그려둔 그림자 텍스처를 붙이는 것처럼 들리지만, 실제로 일어나는 일은 훨씬 근본적이다. <strong>라이트맵 텍셀<span class="fn-note"><input type="checkbox" id="fn-texel" class="fn-toggle"><label for="fn-texel" class="fn-ref">1</label><span class="fn-body"><strong>텍셀(texel):</strong> 텍스처의 최소 단위 한 칸. 이미지의 최소 단위가 픽셀이듯 텍스처의 원소가 텍셀이다(texture + element). 라이트맵 텍셀은 라이트맵 UV로 씬 표면의 작은 패치(보통 수~수십 cm) 하나에 대응하며, 그 패치의 구운 라이팅 값을 담는다.</span></span> 하나하나에 대해 렌더링 방정식의 적분을 수치적으로 푸는 것</strong>이다. UE5의 GPU Lightmass(GPULM)는 이 적분을 DXR 하드웨어 레이 트레이싱 위의 <strong>몬테카를로 패스 트레이싱</strong>으로 계산한다. 텍셀 하나당 기본 512개의 광선 경로를 쏘고, 각 경로가 씬을 최대 32번 튕기며 모아온 빛을 평균 내서, 그 값을 텍스처에 저장한다. 화면 픽셀 대신 라이트맵 텍셀을 "카메라"로 삼는 오프라인 렌더러인 셈이다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-이름 때문에 레거시 <strong>CPU Lightmass</strong>의 GPU 포팅으로 오해하기 쉽지만, <strong>솔버(solver)</strong> — 렌더링 방정식의 적분을 실제로 계산해내는 알고리즘 — 자체가 다르다. 입력(씬·라이트)과 출력(라이트맵)은 같아도 푸는 방법이 다른 것이다. CPU Lightmass는 <strong>포톤 매핑</strong> 계열이다: 먼저 광원에서 수많은 "포톤"(빛 입자)을 씬에 쏘아 표면에 쌓아두고, 그다음 각 텍셀이 주변에 쌓인 포톤 밀도를 수집해 간접광을 추정한다 — 뿌리고 수집하는 2단계 방식이라 결과가 포톤 개수와 수집 반경에 의존하고, 오차가 노이즈가 아닌 "번짐"으로 나타나는 편향된 방법이다. GPU Lightmass는 방향이 반대다 — <strong>텍셀에서 출발한 경로가 빛이 온 길을 거꾸로 되짚어 광원까지 간다.</strong> 포톤맵 같은 중간 자료구조도 없어서 플러그인 어디에도 포톤은 없고, <code>LightmapPathTracing.usf</code> 셰이더가 엔진의 레퍼런스 패스 트레이서(<code>Engine/Shaders/Private/PathTracing/</code>)의 재질 평가·광원 샘플링 라이브러리를 그대로 끌어다 쓰는, 무비 렌더러와 같은 계열의 <strong>path tracer</strong>다. Frostbite의 라이트맵 베이커 Flux(GDC 2018)도 똑같은 방식을 택했다.
+이름 때문에 레거시 <strong>CPU Lightmass</strong>의 GPU 포팅으로 오해하기 쉽지만, <strong>솔버(solver)</strong><span class="fn-note"><input type="checkbox" id="fn-solver" class="fn-toggle"><label for="fn-solver" class="fn-ref">2</label><span class="fn-body"><strong>솔버(solver):</strong> 렌더링 방정식의 적분을 실제로 계산해내는 알고리즘을 가리킨다.</span></span> 자체가 다르다. 입력(씬·라이트)과 출력(라이트맵)은 같아도 푸는 방법이 다른 것이다. CPU Lightmass는 <strong>포톤 매핑</strong> 계열이다: 먼저 광원에서 수많은 "포톤"(빛 입자)을 씬에 쏘아 표면에 쌓아두고, 그다음 각 텍셀이 주변에 쌓인 포톤 밀도를 수집해 간접광을 추정한다 — 뿌리고 수집하는 2단계 방식이라 결과가 포톤 개수와 수집 반경에 의존하고, 오차가 노이즈가 아닌 "번짐"으로 나타나는 편향된 방법이다. GPU Lightmass는 방향이 반대다. <strong>텍셀에서 출발한 경로가 빛이 온 길을 거꾸로 되짚어 광원까지 간다.</strong> 포톤맵 같은 중간 자료구조도 없어서 플러그인 어디에도 포톤은 없고, <code>LightmapPathTracing.usf</code> 셰이더가 엔진의 레퍼런스 패스 트레이서(<code>Engine/Shaders/Private/PathTracing/</code>)의 재질 평가·광원 샘플링 라이브러리를 그대로 끌어다 쓰는, 무비 렌더러와 같은 계열의 <strong>path tracer</strong>다. Frostbite에서 라이트맵을 굽는 툴인 Flux(GDC 2018)도 똑같은 방식을 택했다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -223,7 +253,7 @@ index: 22
 
 <div class="callout callout-info">
 <div class="callout-title">이 글의 출처</div>
-<p>UE 5.8 소스를 직접 읽고 정리했다 — 베이커: <code>Engine/Plugins/Experimental/GPULightmass/</code>의 <code>LightmapPathTracing.usf</code> · <code>LightmapEncoding.ush</code> · <code>LightmapOutput.usf</code> · <code>IrradianceCachingCommon.ush</code> · <code>GPULightmassSettings.h</code> · <code>LightmapRenderer.cpp</code> · <code>LightmapEncoding.cpp</code>, 런타임: <code>Engine/Shaders/Private/LightmapCommon.ush</code> · <code>BasePassPixelShader.usf</code>, Lumen: <code>Engine/Shaders/Private/Lumen/</code> 일대. 외부 자료는 Epic 공식 문서(GPU Lightmass / Lumen Technical Details), Kajiya의 1986년 원 논문, Daniel Wright의 SIGGRAPH 2021 "Radiance Caching for Real-Time Global Illumination"과 SIGGRAPH 2022 Lumen 발표, Frostbite GDC 2018 "Precomputed Global Illumination in Frostbite"를 교차 확인했다. GPU Lightmass는 5.8에서도 여전히 Experimental 플러그인이다.</p>
+<p>UE 5.8 소스를 직접 읽고 정리했다 — 라이트맵 굽기: <code>Engine/Plugins/Experimental/GPULightmass/</code>의 <code>LightmapPathTracing.usf</code> · <code>LightmapEncoding.ush</code> · <code>LightmapOutput.usf</code> · <code>IrradianceCachingCommon.ush</code> · <code>GPULightmassSettings.h</code> · <code>LightmapRenderer.cpp</code> · <code>LightmapEncoding.cpp</code>, 런타임: <code>Engine/Shaders/Private/LightmapCommon.ush</code> · <code>BasePassPixelShader.usf</code>, Lumen: <code>Engine/Shaders/Private/Lumen/</code> 일대. 외부 자료는 Epic 공식 문서(GPU Lightmass / Lumen Technical Details), Kajiya의 1986년 원 논문, Daniel Wright의 SIGGRAPH 2021 "Radiance Caching for Real-Time Global Illumination"과 SIGGRAPH 2022 Lumen 발표, Frostbite GDC 2018 "Precomputed Global Illumination in Frostbite"를 교차 확인했다. GPU Lightmass는 5.8에서도 여전히 Experimental 플러그인이다.</p>
 </div>
 
 <span class="section-eyebrow">01 — 코드 흐름</span>
@@ -233,12 +263,62 @@ index: 22
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
-앞으로의 장들은 사실상 <strong>하나의 알고리즘을 부위별로 확대</strong>한 것이다. 그래서 본론에 들어가기 전에 GPULM의 패스 트레이싱 전체를 <strong>코드 뼈대 하나</strong>로 펼쳐 두자. 지금은 각 줄의 뜻을 몰라도 된다 — 전체가 어떤 모양이고, 어느 조각을 어느 장이 파고드는지 <strong>큰 흐름</strong>만 눈에 익히면 된다. 큰 그림은 의외로 단순해서, 함수 <strong>둘</strong>이 전부다: 텍셀마다 경로를 쏴 빛을 모아 오는 커널, 그리고 그 커널을 돌리고 결과를 누적·출력하는 드라이버.
+앞으로의 장들은 사실상 <strong>하나의 알고리즘을 부위별로 확대</strong>한 것이다. 그래서 본론에 들어가기 전에 GPULM의 패스 트레이싱 전체를 <strong>코드 뼈대</strong>로 먼저 훑어보자. 지금은 각 줄의 뜻을 몰라도 된다 — 전체가 어떤 모양이고, 어느 조각을 어느 장이 파고드는지 <strong>큰 흐름</strong>만 눈에 익히면 된다. 큰 그림은 의외로 단순해서, 함수 <strong>둘</strong>이 전부다: 텍셀마다 경로를 쏴 빛을 모아 오는 커널, 그리고 그 커널을 돌리고 결과를 누적·출력하는 드라이버.
 </p>
+
+<p style="color:var(--text2);line-height:1.85;">
+코드를 읽기 전에, <strong>이 셰이더가 실제로 언제, 어떤 단위로 실행되는지</strong>부터 분명히 하자. 보통 셰이더는 카메라가 만드는 화면 픽셀 위에서 돌지만, 라이트맵을 구울 때는 카메라도 화면도 없다. 베이크가 시작되면 에디터가 <strong>매 프레임</strong>, 아직 샘플이 덜 쌓인 라이트맵 타일(64×64 텍셀, 보더 포함 68×68)을 배치<span class="fn-note"><input type="checkbox" id="fn-batch" class="fn-toggle"><label for="fn-batch" class="fn-ref">3</label><span class="fn-body"><strong>배치(batch):</strong> 여러 개를 한 번의 호출로 모아 처리하는 묶음. GPU는 디스패치 호출 한 번마다 고정 비용(커맨드 기록, 파이프라인 전환 등)이 들기 때문에, 타일을 하나씩 따로 처리하는 대신 이번 프레임에 처리할 타일 여러 개를 한 번의 DispatchRays로 묶어 실행한다.</span></span>로 묶어 <strong>화면 해상도 대신 "타일 크기 × 타일 수" 크기로 DispatchRays<span class="fn-note"><input type="checkbox" id="fn-dispatchrays" class="fn-toggle"><label for="fn-dispatchrays" class="fn-ref">4</label><span class="fn-body"><strong>DispatchRays:</strong> DXR에서 레이 트레이싱 작업을 시작시키는 API 호출. dispatch는 "파견하다"라는 뜻으로, GPU 프로그래밍에서는 "이만큼의 스레드를 실행하라"는 명령을 GPU에 내려보내는 것을 가리킨다 — 컴퓨트 셰이더의 <code>Dispatch</code>와 같은 용법이다. 정점을 넣어 픽셀을 그리는 Draw 호출과 달리, Dispatch 계열은 그냥 "가로×세로 개수만큼 스레드를 내보내라"는 호출이고, DispatchRays는 그렇게 파견된 스레드 각각이 raygen 셰이더에서 광선을 쏘기 시작한다는 뜻이다.</span></span>를 부른다</strong>(<code>LightmapRenderer.cpp</code>의 <code>RayTraceDispatch</code>). 스레드 하나가 라이트맵 텍셀 하나를 맡아 아래의 드라이버를 실행하고, 이 디스패치가 프레임마다 반복되며 타일마다 512패스가 쌓인다. 드라이버가 첫 줄에서 읽는 GBuffer도 <strong>화면 GBuffer가 아니다</strong> — GPULM이 직접 만드는 <strong>텍셀 GBuffer</strong>로, <code>LightmapGBuffer.usf</code>의 버텍스 셰이더가 정점을 카메라로 투영하는 대신 <strong>라이트맵 UV 좌표에 놓아</strong> 메시를 UV 아일랜드 모양대로 평평하게 펼쳐 래스터라이즈하고, 픽셀 셰이더가 텍셀마다 "이 텍셀이 대응하는 표면 지점의 월드 위치·노멀"을 기록해 둔 것이다. 셰이더에 딸려 가는 View 유니폼 버퍼도 <code>ReferenceView</code>라는 형식상의 가짜 뷰다 — 카메라가 하는 일은 실시간 프리뷰에서 뷰포트에 보이는 타일을 먼저 굽도록 우선순위를 주는 것뿐이다.
+</p>
+
+<div class="scene-fig">
+<svg viewBox="0 0 640 272" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono', monospace">
+<defs>
+<marker id="gp-uv-ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#4a4038"/></marker>
+</defs>
+<!-- 왼쪽: 3D 메시 (큐브) -->
+<path d="M 70,85 L 130,60 L 190,85 L 130,110 Z" fill="rgba(180,83,9,0.22)" stroke="#b45309" stroke-width="1.4"/>
+<path d="M 70,85 L 130,110 L 130,190 L 70,165 Z" fill="rgba(10,143,114,0.20)" stroke="#0a8f72" stroke-width="1.4"/>
+<path d="M 130,110 L 190,85 L 190,165 L 130,190 Z" fill="rgba(109,40,217,0.16)" stroke="#6d28d9" stroke-width="1.4"/>
+<text x="130" y="90" fill="#b45309" font-size="10" text-anchor="middle">윗면</text>
+<text x="100" y="153" fill="#0a8f72" font-size="10" text-anchor="middle">앞면</text>
+<text x="160" y="153" fill="#6d28d9" font-size="10" text-anchor="middle">옆면</text>
+<circle cx="145" cy="83" r="3.5" fill="#d6304a"/>
+<text x="130" y="225" fill="#8a7f74" font-size="11" text-anchor="middle">3D 메시 (월드 공간)</text>
+<!-- 가운데: 펼침 화살표 -->
+<line x1="212" y1="140" x2="342" y2="140" stroke="#4a4038" stroke-width="1.6" marker-end="url(#gp-uv-ah)"/>
+<text x="277" y="128" fill="#4a4038" font-size="11" text-anchor="middle">라이트맵 UV로 펼침</text>
+<text x="277" y="158" fill="#8a7f74" font-size="10" text-anchor="middle">(unwrap)</text>
+<!-- 오른쪽: 라이트맵 텍스처와 UV 아일랜드 -->
+<rect x="360" y="25" width="220" height="220" fill="rgba(180,83,9,0.03)" stroke="#4a4038" stroke-width="1.4"/>
+<rect x="378" y="45" width="48" height="48" fill="rgba(180,83,9,0.22)" stroke="#b45309" stroke-width="1.3"/>
+<rect x="445" y="45" width="48" height="48" fill="rgba(10,143,114,0.20)" stroke="#0a8f72" stroke-width="1.3"/>
+<rect x="512" y="45" width="48" height="48" fill="rgba(109,40,217,0.16)" stroke="#6d28d9" stroke-width="1.3"/>
+<rect x="378" y="115" width="48" height="48" fill="rgba(138,127,116,0.15)" stroke="#8a7f74" stroke-width="1"/>
+<rect x="445" y="115" width="48" height="48" fill="rgba(138,127,116,0.15)" stroke="#8a7f74" stroke-width="1"/>
+<rect x="512" y="115" width="48" height="48" fill="rgba(138,127,116,0.15)" stroke="#8a7f74" stroke-width="1"/>
+<text x="470" y="180" fill="#8a7f74" font-size="10" text-anchor="middle">뒷면·바닥·반대 옆면</text>
+<text x="470" y="205" fill="#8a7f74" font-size="10" text-anchor="middle">조각 사이 여백 = 이웃 조각과</text>
+<text x="470" y="219" fill="#8a7f74" font-size="10" text-anchor="middle">섞이지 않게 두는 패딩</text>
+<text x="470" y="262" fill="#8a7f74" font-size="11" text-anchor="middle">라이트맵 텍스처 (0–1 UV 공간)</text>
+<!-- 같은 표면 지점 연결 -->
+<rect x="398" y="63" width="5" height="5" fill="#d6304a"/>
+<path d="M 148,80 C 230,32 330,30 398,62" fill="none" stroke="#d6304a" stroke-width="1.3" stroke-dasharray="4 3"/>
+<text x="272" y="24" fill="#d6304a" font-size="10" text-anchor="middle">같은 표면 지점 → 텍셀 하나</text>
+</svg>
+<div class="scene-cap">UV 아일랜드 — 메시 표면을 재단선(seam)을 따라 잘라 0–1 텍스처 사각형 안에 겹치지 않게 펼쳐 놓은 조각들. 큐브라면 여섯 면이 조각 여섯 개가 된다. <code>LightmapGBuffer.usf</code>는 메시를 화면이 아니라 이 펼침 그림 위에 래스터라이즈해서, 각 텍셀에 원래 표면 지점의 월드 위치·노멀을 기록한다.</div>
+</div>
+
+<div class="code-block"><span class="code-lang">LightmapGBuffer.usf — 텍셀 GBuffer 만들기 (패스 트레이싱 전 준비)</span><span class="cm">// VS: 정점을 화면이 아니라 "라이트맵 UV 펼침 그림"의 위치에 놓고 래스터라이즈한다</span>
+Output.Position          = float4(라이트맵 UV를 [-1,1]로 변환한 좌표, <span class="num">0</span>, <span class="num">1</span>);
+Output.SavedWorldPosition = 진짜 월드 위치;              <span class="cm">// 화면 투영에 안 쓰는 대신 따로 실어 보낸다</span>
+
+<span class="cm">// PS: 텍셀마다 그 표면 지점의 정보를 기록 → 아래 드라이버가 읽는 "텍셀 GBuffer"</span>
+ScratchTilePoolLayer0[텍셀 좌표] = 월드 위치;
+ScratchTilePoolLayer1[텍셀 좌표] = 월드 노멀;</div>
 
 <div class="code-block"><span class="code-lang">LightmapPathTracing.usf — 전체 드라이버 (raygen 셰이더)</span><span class="kw">void</span> <span class="fn">LightmapPathTracingMainRG</span>()
 {
-    <span class="cm">// 텍셀의 월드 위치·노멀을 미리 구운 GBuffer에서 읽는다 (화면 픽셀 대신 텍셀)   → 03장</span>
+    <span class="cm">// 위에서 만든 텍셀 GBuffer에서 이 텍셀의 월드 위치·노멀을 읽는다               → 03장</span>
     float3 WorldNormal        = GBufferWorldNormal[t];
     float3 TranslatedWorldPos = ...;
 
@@ -257,7 +337,7 @@ index: 22
 <span class="cm">//   OutputColor = Irradiance / SampleCount → FinalizeLightmapIrradiance / …SH</span></div>
 
 <p style="color:var(--text2);line-height:1.85;">
-드라이버가 부르는 <code>PathTracingKernel</code>이 알고리즘의 심장이다. 텍셀에서 출발한 광선 하나가 씬을 튕기며 빛을 모으는 <strong>경로(path)</strong> 자체이고, 그 안의 각 단계가 04·05장의 주제가 된다.
+드라이버가 부르는 <code>PathTracingKernel</code>이 이 알고리즘의 핵심이다. 실제 빛 계산은 전부 여기서 일어난다. 텍셀에서 출발한 광선 하나가 씬을 튕기며 빛을 모으는 <strong>경로(path)</strong> 자체이고, 그 안의 각 단계가 04·05장의 주제가 된다.
 </p>
 
 <div class="code-block"><span class="code-lang">LightmapPathTracing.usf — PathTracingKernel (경로 하나 = 표본 하나)</span><span class="kw">void</span> <span class="fn">PathTracingKernel</span>(...)
@@ -269,16 +349,16 @@ index: 22
     {
         <span class="fn">TraceRay</span>(...);                            <span class="cm">// 표면을 맞힌다 (반투명 통과 포함)</span>
 
-        <span class="cm">// [IC] 이 지점의 간접광이 캐시에 있으면 읽고 조기 종료                   → 05장</span>
+        <span class="cm">// [IC: Irradiance Caching] 이 지점의 간접광이 캐시에 있으면 읽고 조기 종료 → 05장</span>
         <span class="kw">if</span> (CacheHit) { Radiance += Cached; <span class="kw">break</span>; }
 
-        <span class="cm">// [NEE] 광원을 하나 골라 그림자 광선으로 직접광을 잰다                    → 04장</span>
+        <span class="cm">// [NEE: Next Event Estimation] 광원을 하나 골라 그림자 광선으로 직접광을 잰다 → 04장</span>
         <span class="fn">EstimateLight</span> → <span class="fn">SelectLight</span> → <span class="fn">SampleLight</span> → 그림자 광선;
 
         <span class="cm">// [Material] 다음 진행 방향을 BRDF로 뽑는다 (bounce 0 = 코사인 반구)       → 03·04장</span>
         MaterialSample = <span class="fn">SampleMaterial</span>(...);
 
-        <span class="cm">// [MIS] 재질 방향이 우연히 광원을 맞히면 파워 휴리스틱으로 가중         → 04장</span>
+        <span class="cm">// [MIS: Multiple Importance Sampling] 재질 방향이 우연히 광원을 맞히면 파워 휴리스틱으로 가중 → 04장</span>
         Radiance += MISWeight * LightContrib;
 
         <span class="cm">// [Russian Roulette] 기여 작은 경로는 확률적으로 종료 (편향 없이)          → 04장</span>
@@ -526,21 +606,63 @@ OutputColor = IrradianceAndSampleCount.rgb / SampleCount;
 공식의 적분 ∫는 표본들의 합 Σ로, d<i>ω</i><sub>i</sub>는 매 경로가 무작위로 뽑는 방향 하나로, 1/π는 코드의 <code>/ PI</code>로 각각 내려앉았다 — <code>+=</code>가 Σ를, 마지막 <code>/ SampleCount</code>가 (1/N)을 맡는다. 02장에서 유도한 식이 곧 이 두 줄이라는 것, 이것이 "공식과 코드가 연결된다"의 실제 모습이다. 그러면 남는 질문은 하나다 — <strong>①의 <code>RadianceValue</code>, 즉 "경로 하나가 어떻게 빛을 모아 오는가"</strong>. 그 텍셀-카메라 트릭과 경로 추적이 바로 03장의 내용이다.
 </p>
 
-<span class="section-eyebrow">03 — 커널</span>
+<span class="section-eyebrow">03 — PathTracingKernel</span>
 </div>
 
 # 텍셀이 카메라가 된다 — PathTracingKernel 해부
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
-베이커에서 가장 중요한 코드는 <code>Engine/Plugins/Experimental/GPULightmass/Shaders/Private/LightmapPathTracing.usf</code>의 <code>PathTracingKernel()</code>과 이를 호출하는 레이젠 셰이더 <code>LightmapPathTracingMainRG()</code>다. 파일 첫머리의 include 목록만 봐도 정체가 드러난다 — <code>PathTracingCommon.ush</code>, <code>PathTracingLightSampling.ush</code>, <code>PathTracingMaterialSampling.ush</code> 등 <strong>엔진 레퍼런스 패스 트레이서의 라이브러리를 그대로 공유</strong>한다. 무비 렌더 큐에서 쓰는 그 패스 트레이서와 재질 평가·광원 샘플링 코드가 같은 뿌리다.
+라이트맵을 구울 때 가장 중요한 코드는 <code>Engine/Plugins/Experimental/GPULightmass/Shaders/Private/LightmapPathTracing.usf</code>의 <code>PathTracingKernel()</code>과 이를 호출하는 raygen 셰이더 <code>LightmapPathTracingMainRG()</code>다. 파일 첫머리의 include 목록만 봐도 정체가 드러난다 — <code>PathTracingCommon.ush</code>, <code>PathTracingLightSampling.ush</code>, <code>PathTracingMaterialSampling.ush</code> 등 <strong>엔진 레퍼런스 패스 트레이서의 라이브러리를 그대로 include</strong>한다. 무비 렌더 큐에서 쓰는 그 패스 트레이서와 재질 평가·광원 샘플링 코드를 문자 그대로 같은 파일로 공유하는 것이다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-일반 패스 트레이서는 카메라에서 픽셀을 향해 1차 광선을 쏜다. 라이트맵 베이커에는 카메라가 없으므로, GPULM은 트릭을 쓴다 — <strong>1차 광선을 실제로 쏘지 않고, 히트 페이로드를 라이트맵 텍셀 위치에 직접 심는다.</strong> 그리고 그 텍셀을 albedo=1인 완전 디퓨즈 표면으로 취급한다.
+path tracing 코드 일부를 들여다보기 전에, 이 함수 <strong>전체를 약식으로</strong> 펼쳐 놓고 시작하자. 함수 시그니처만 읽어도 이 장에서 다룰 내용이 한눈에 들어온다 — <strong>입력은 사실상 "텍셀의 위치와 노멀" 둘</strong>이고(어느 텍셀에서 경로를 쏠 것인가), <strong>출력은 경로 하나가 모아 온 빛</strong>(<code>RadianceValue</code>)과 그 부속 정보들이다. HLSL 함수는 값을 <code>return</code>하는 대신 <code>inout</code> 파라미터에 담아 돌려주는 관례가 있어서, 출력이 전부 파라미터 목록 안에 들어 있다. 아래에서 자세히 볼 코드 조각 ①·②가 이 뼈대의 어디에 박혀 있는지도 함께 표시해 두었다.
 </p>
 
-<div class="code-block"><span class="code-lang">LightmapPathTracing.usf — bounce 0 (텍셀 심기)</span><span class="cm">// 1차 광선은 가짜: 텍셀 월드 위치·노멀을 페이로드에 직접 기록</span>
+<div class="code-block"><span class="code-lang">LightmapPathTracing.usf — PathTracingKernel 전체 약식 (입력·출력 요약)</span><span class="cm">// 이 함수 1회 실행 = 경로 1개 = 02장 공식의 표본 하나</span>
+<span class="kw">void</span> <span class="fn">PathTracingKernel</span>(
+    <span class="cm">// ── 입력: "어느 텍셀에서 쏠 것인가" — 드라이버가 텍셀 GBuffer에서 읽어 넘긴다</span>
+    <span class="kw">in</span> uint RenderPassIndex,                 <span class="cm">// 지금 몇 번째 패스인가 (0 ~ 511)</span>
+    float3  TranslatedWorldPosition,         <span class="cm">// 텍셀의 월드 위치</span>
+    float3  ShadingNormal,                   <span class="cm">// 텍셀의 노멀</span>
+    <span class="kw">inout</span> RandomSequence RandSequence, ...,  <span class="cm">// 난수 시퀀스 (방향 뽑기·룰렛용)</span>
+
+    <span class="cm">// ── 출력: "경로가 모아 온 빛" — 전부 inout 파라미터로 돌려준다</span>
+    <span class="kw">inout</span> bool   bIsValidSample,             <span class="cm">// 표본을 버려야 하나 (뒷면 히트 등)</span>
+    <span class="kw">inout</span> float3 RadianceValue,              <span class="cm">// ★ 주인공 — 간접광 radiance 표본</span>
+    <span class="kw">inout</span> float3 RadianceDirection,          <span class="cm">// 그 빛이 들어온 방향 (SH 누적용 → 06장)</span>
+    <span class="kw">inout</span> float3 DirectLightingIrradiance,   <span class="cm">// 직접광은 별도 그릇에 (Static 전용 → 04장)</span>
+    <span class="kw">inout</span> FL2SHAndCorrection DirectLightingSH,        <span class="cm">// 직접광의 방향 SH (→ 06장)</span>
+    <span class="kw">inout</span> float  LuminanceForFirstBounceRayGuiding,   <span class="cm">// Ray Guiding 학습값 (→ 05장)</span>
+    <span class="kw">inout</span> float3 SkyLightBentNormal, ...)    <span class="cm">// 스카이라이트 가림 정보 (→ 06장)</span>
+{
+    float3 Radiance = <span class="num">0</span>;                     <span class="cm">// 이 경로가 모을 빛의 총합</span>
+
+    <span class="cm">// 가짜 카메라 광선 — 텍셀 1cm 위에서 텍셀을 수직으로 내려다본다. 실제 트레이스는 안 하고,</span>
+    <span class="cm">// bounce 0에서 "이 광선이 텍셀을 맞혔다"는 히트 결과를 직접 심는다 (코드 ①)</span>
+    FRayDesc Ray;
+    Ray.Origin    = TranslatedWorldPosition + ShadingNormal;  <span class="cm">// 텍셀 위치 + 노멀×1 (1유닛=1cm)</span>
+    Ray.Direction = -ShadingNormal;                           <span class="cm">// 노멀 반대 방향 = 텍셀을 향해</span>
+
+    <span class="kw">for</span> (<span class="kw">int</span> Bounce = <span class="num">0</span>; Bounce &lt;= MaxBounces; Bounce++)  <span class="cm">// 01장에서 본 그 루프 (최대 32바운스)</span>
+    {
+        <span class="fn">TraceRay</span>(...);                                <span class="cm">// 광선을 쏘아 다음 표면을 맞힌다 (bounce 0은 건너뜀)</span>
+        <span class="kw">if</span> (캐시 히트) { Radiance += 캐시값; <span class="kw">break</span>; }     <span class="cm">// Irradiance Caching — 이웃이 수렴시킨 간접광 재사용 (→ 05장)</span>
+        광원을 골라 그림자 광선으로 직접광을 잰다 → LightContrib;  <span class="cm">// NEE(next event estimation) (→ 04장)</span>
+        <span class="fn">SampleMaterial</span>(...);                          <span class="cm">// BRDF로 다음 진행 방향을 뽑는다 (→ 04장)</span>
+        Radiance += MISWeight × LightContrib;             <span class="cm">// MIS(multiple importance sampling) 가중해 광원 기여 누적 (→ 04장)</span>
+        <span class="kw">if</span> (룰렛 탈락) <span class="kw">break</span>;                          <span class="cm">// 러시안 룰렛 — 기여 적은 경로를 확률적으로 종료 (→ 04장)</span>
+    }
+
+    RadianceValue = Radiance;                <span class="cm">// 출력 확정 — 반환 후 드라이버가 누적 (코드 ②)</span>
+}</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+일반 패스 트레이서는 카메라에서 픽셀을 향해 1차 광선을 쏜다. 라이트맵을 구울 때는 카메라가 없으므로, GPULM은 트릭을 쓴다 — <strong>1차 광선을 실제로 쏘지 않고, 히트 페이로드를 라이트맵 텍셀 위치에 직접 심는다.</strong> 그리고 그 텍셀을 albedo=1인 완전 디퓨즈 표면으로 취급한다.
+</p>
+
+<div class="code-block"><span class="code-lang">코드 ① — bounce 0, 커널 첫머리 (텍셀 심기)</span><span class="cm">// 1차 광선은 가짜: 텍셀 월드 위치·노멀을 페이로드에 직접 기록</span>
 Payload.TranslatedWorldPos = TranslatedWorldPosition;
 Payload.WorldNormal        = WorldNormal;
 <span class="kw">...</span>
@@ -548,10 +670,16 @@ Payload.BaseColor = <span class="num">1</span>;                              <sp
 Payload.ShadingModelID = PATH_TRACING_SHADINGMODELID_BASIC;  <span class="cm">// 순수 램버시안</span></div>
 
 <p style="color:var(--text2);line-height:1.85;">
-이렇게 하면 bounce 0의 재질 샘플링이 자동으로 <strong>텍셀 반구의 코사인 가중 샘플링</strong>이 된다. 이후는 여느 패스 트레이서와 똑같이 경로가 이어진다. 경로가 끝나고 돌아온 radiance는 텍셀별 누적 버퍼에 원자적으로 더해진다.
+이렇게 하면 bounce 0의 재질 샘플링이 자동으로 <strong>텍셀 반구의 코사인 가중 샘플링</strong>이 된다. 이후는 여느 패스 트레이서와 똑같이 경로가 이어진다. 경로가 끝나면 커널은 모아 온 빛을 <code>RadianceValue</code>에 담아 반환하고, 이를 받은 드라이버(<code>LightmapPathTracingMainRG</code>)가 텍셀별 누적 버퍼에 더한다.
 </p>
 
-<div class="code-block"><span class="code-lang">LightmapPathTracing.usf — 샘플 누적</span><span class="cm">// RadianceValue: 이 경로가 모아온 빛, TangentZ: cosθ</span>
+<div class="code-block"><span class="code-lang">코드 ② — 샘플 누적, 커널 반환 직후 (드라이버 쪽)</span><span class="cm">// 드라이버가 커널을 부른다 — 경로 하나가 여기서 시작되고 끝난다</span>
+float3 RadianceValue = <span class="num">0</span>;
+<span class="fn">PathTracingKernel</span>(RenderPassIndex, TranslatedWorldPosition, ShadingNormal, ...,
+                  RadianceValue, RadianceDirection, ...);        <span class="cm">// ← inout으로 결과가 채워져 돌아온다</span>
+
+<span class="cm">// 돌아온 RadianceValue(경로가 모아온 빛)를 텍셀 누적 버퍼에 더한다</span>
+<span class="kw">float</span> TangentZ = saturate(dot(RadianceDirection, ShadingNormal)); <span class="cm">// cosθ — 빛이 온 방향과 노멀 사이</span>
 IrradianceAndSampleCount.rgb += RadianceValue * TangentZ / PI;   <span class="cm">// ← irradiance/π 누적</span>
 IrradianceAndSampleCount.w   += <span class="num">1</span>;                               <span class="cm">// 샘플 카운트</span>
 SHDirectionality             += SH.L2SHCoefficients;             <span class="cm">// directionality SH (06장)</span></div>
@@ -586,10 +714,14 @@ SHDirectionality             += SH.L2SHCoefficients;             <span class="cm
 <div class="scene-cap">텍셀이 카메라를 대신한다 — 텍셀 반구에서 경로를 512개 출발시켜, 각 경로가 가져온 radiance·cosθ/π를 평균 내면 그 텍셀의 라이트맵 값(irradiance/π)이 된다.</div>
 </div>
 
+<p style="color:var(--text2);line-height:1.85;">
+그림을 이 장의 코드와 겹쳐 읽으면 이렇다. 왼쪽 반구에서 뻗어 나가는 주황 화살표 하나하나가 <code>PathTracingKernel</code> 호출 한 번, 즉 경로 하나다 — 코드 ①이 그 출발점(텍셀을 albedo=1 램버시안 면으로 심는 트릭)을 만들고, bounce 루프가 화살표 끝에서 씬을 튕기며 빛을 모아 온다. 오른쪽 보라 상자가 코드 ②의 텍셀 누적 버퍼다 — 경로가 반환한 <code>RadianceValue</code>에 cosθ/π를 곱해 첫 줄(Σ Radiance·cosθ/π)에 더하고, 빛이 온 방향은 SH 계수로(둘째 줄), 경로 개수는 SampleCount로(셋째 줄) 함께 쌓인다. 렌더 패스 1회가 화살표 1개이므로 512 패스가 지나면 이 상자에 표본 512개가 쌓여 있고, 마지막에 SampleCount로 나누는 순간 02장 공식의 (1/N)Σ가 완성되어 그 텍셀의 라이트맵 값이 된다. 요컨대 <strong>왼쪽 반구가 몬테카를로의 "표본 뽑기", 오른쪽 상자가 "평균 내기"</strong>이고, 이 장에서 아직 열어 보지 않은 것은 화살표가 씬 속에서 실제로 어떻게 움직이다 언제 멈추는가뿐이다 — 그것이 바로 다음 04장이다.
+</p>
+
 <span class="section-eyebrow">04 — path의 이동과 소멸</span>
 </div>
 
-# ray 하나의 path는 어떻게 움직이고, 언제 소멸되나 — NEE·MIS·러시안 룰렛
+# ray 하나의 path는 어떻게 움직이고, 언제 소멸되나 — Next Event Estimation · Multiple Importance Sampling · 러시안 룰렛
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
@@ -607,7 +739,7 @@ PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 계
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-그런데 path를 아무렇게나 흘려보내면 노이즈가 오래 남는다. 02장에서 봤듯 몬테카를로의 오차는 표본값들이 얼마나 들쭉날쭉한가 — 통계 용어로 <strong>분산(variance)</strong> — 에 비례하므로, 표본을 늘리지 않고 노이즈를 줄이려면 표본 하나하나의 값이 덜 요동치게 만들어야 한다(분산 처리와는 무관한, 순수 통계 개념이다). 이를 위한 두 축은 프로덕션 패스 트레이서의 정석 조합이다. 첫째, <strong>NEE(next event estimation, 명시적 광원 샘플링)</strong> — 매 바운스에서 광원을 직접 하나 골라 그림자 광선을 쏜다. 광원 선택은 공간을 분할한 <strong>light grid</strong>(<code>LightGridLookup</code> → <code>EstimateLight</code> → <code>SelectLight</code> → <code>SampleLight</code>)로 가속된다. 둘째, <strong>MIS(multiple importance sampling)</strong> — 같은 빛을 광원 샘플링으로도, BRDF 샘플링으로도 셀 수 있으므로 <code>MISWeightPower(LightSample.Pdf, MaterialEval.Pdf)</code> 파워 휴리스틱으로 이중 계산 없이 두 전략의 장점을 합친다(<code>MISMode = 2</code>, Material과 Light 둘 다). 그 밖에 emissive 재질의 기여(<code>EnableEmissive = 1</code> — 방정식의 L<sub>e</sub> 항이 간접광 path에 실려 들어온다), 반투명을 통과하며 색이 물드는 그림자 광선(<code>TraceTransparentVisibilityRay</code>), path가 진행될수록 러프니스를 단조 증가시켜 코스틱 노이즈를 억제하는 approximate caustics까지 갖췄다.
+그런데 path를 아무렇게나 흘려보내면 노이즈가 오래 남는다. 02장에서 봤듯 몬테카를로의 오차는 표본값들이 얼마나 들쭉날쭉한가<span class="fn-note"><input type="checkbox" id="fn-variance" class="fn-toggle"><label for="fn-variance" class="fn-ref">5</label><span class="fn-body">이 '들쭉날쭉함'을 통계 용어로는 <strong>분산(variance)</strong>이라 한다.</span></span>에 비례하므로, 표본을 늘리지 않고 노이즈를 줄이려면 표본 하나하나의 값이 덜 요동치게 만들어야 한다(분산 처리와는 무관한, 순수 통계 개념이다). 이를 위한 두 축은 프로덕션 패스 트레이서의 정석 조합이다. 첫째, <strong>NEE(next event estimation, 명시적 광원 샘플링)</strong> — 매 바운스에서 광원을 직접 하나 골라 그림자 광선을 쏜다. 광원 선택은 공간을 분할한 <strong>light grid</strong>(<code>LightGridLookup</code> → <code>EstimateLight</code> → <code>SelectLight</code> → <code>SampleLight</code>)로 가속된다. 둘째, <strong>MIS(multiple importance sampling)</strong> — 같은 빛을 광원 샘플링으로도, BRDF 샘플링으로도 셀 수 있으므로 <code>MISWeightPower(LightSample.Pdf, MaterialEval.Pdf)</code> 파워 휴리스틱으로 이중 계산 없이 두 전략의 장점을 합친다(<code>MISMode = 2</code>, Material과 Light 둘 다). 그 밖에 emissive 재질의 기여(<code>EnableEmissive = 1</code> — 방정식의 L<sub>e</sub> 항이 간접광 path에 실려 들어온다), 반투명을 통과하며 색이 물드는 그림자 광선(<code>TraceTransparentVisibilityRay</code>), path가 진행될수록 러프니스를 단조 증가시켜 코스틱 노이즈를 억제하는 approximate caustics까지 갖췄다.
 </p>
 
 <div class="callout callout-warn">
@@ -622,15 +754,15 @@ PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 계
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
-순수 패스 트레이싱만으로도 답은 나오지만, <strong>수렴이 느리다</strong>. 수렴이 느리다는 건 — 샘플 N을 쌓을수록 추정값이 참값으로 조여들긴 하는데, 노이즈가 1/√N으로만 줄어서 <strong>노이즈를 절반으로 줄이려면 샘플(=시간)이 4배, 1/10로 줄이려면 100배</strong> 필요하다는 뜻이다. 처음엔 그림이 빠르게 깨끗해지다가 갈수록 "시간은 쓰는데 좋아지질 않는" 구간에 들어간다. 게다가 작은 창 하나로만 빛이 드는 실내처럼 밝은 방향을 우연히 맞히기 힘든 씬에서는 대부분의 path가 0을 가져오고 가끔 큰 값이 터지므로 — 표본의 요동(분산)이 커서 — 필요한 샘플 수가 폭증한다. GPULM은 이 지점을 공략하는 가속 장치 두 개를 얹는다.
+순수 패스 트레이싱만으로도 답은 나오지만, <strong>수렴이 느리다</strong>. 수렴이 느리다는 건 — 샘플 N을 쌓을수록 추정값이 참값으로 조여들긴 하는데, 노이즈가 1/√N으로만 줄어서 <strong>노이즈를 절반으로 줄이려면 샘플(=시간)이 4배, 1/10로 줄이려면 100배</strong> 필요하다는 뜻이다. 처음엔 그림이 빠르게 깨끗해지다가 갈수록 "시간은 쓰는데 좋아지질 않는" 구간에 들어간다. 게다가 작은 창 하나로만 빛이 드는 실내처럼 밝은 방향을 우연히 맞히기 힘든 씬에서는 대부분의 path가 0을 가져오고 가끔 큰 값만 터져 표본의 요동(분산)이 커지므로 필요한 샘플 수가 폭증한다. GPULM은 이 지점을 공략하는 가속 장치 두 개를 얹는다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-첫째는 <strong>Irradiance Caching</strong>(기본 켜짐, <code>IrradianceCachingCommon.ush</code>). 첫 바운스가 도착한 지점의 간접 irradiance를 공간 해시 테이블(<code>ICHashTableFind</code>)에 누적해 둔다 — 레코드는 "합산값 + 샘플 수" 형태라, 쌓일수록 그 위치의 표본 평균, 즉 수렴된 추정값이 되어 간다. 이후 다른 path가 그 근처에 도착하면 <strong>path를 이어가는 대신 캐시 값을 읽고 조기 종료</strong>한다. 이렇게 남의 계산 결과를 가져다 써도 되는 근거는 두 가지다. 하나, 디퓨즈 바운스에서 필요한 것은 "빛이 어느 방향에서 왔는가"가 아니라 코사인 가중 총량인 <strong>irradiance 하나뿐</strong>이다(02장에서 f<sub>r</sub>이 적분 밖으로 빠진 것과 같은 이유). 둘, <strong>간접광의 irradiance는 공간에서 부드럽게 변한다</strong> — 바닥 한 뼘 옆이라고 간접광이 급격히 달라지는 일은 드물기 때문에, 옆 지점에서 이미 수렴시켜 둔 값을 가져와도 거의 같은 답이 나온다. Ward의 1988년 고전 irradiance caching이 세운 가정 그대로다. 반대로 직접광은 그림자 경계에서 급변하므로 캐시 대상이 아니고, 부드러움 가정이 깨지기 쉬운 곳을 걸러내는 가드 — 모서리 근처 거부, 최대 조회 거리 제한, 뒷면 감지 — 가 붙어 있다. 물론 "근처 값으로 대신한다"는 것 자체가 작은 체계적 오차라서, Epic 문서 스스로 이 옵션을 "더 물리적으로 올바른 GI 강도를 주지만 <strong>약간의 편향(some biasing)</strong>이 생긴다"고 적어둔다. 언뜻 역설 같은 이 문장을 풀면 — <strong>"더 올바른 강도"</strong>는 캐시 레코드 하나에 수백 개의 샘플(<code>IrradianceCacheQuality = 128</code>)이 쌓이므로 같은 시간 안에 간접광의 <strong>밝기 총량</strong>이 훨씬 잘 수렴한다는 뜻이고, <strong>"약간의 편향"</strong>은 옆 지점의 값을 재사용하는 탓에 밝기의 <strong>공간적 분포</strong>가 캐시 반경만큼 뭉개진다는 — 샘플을 늘려도 사라지지 않는 — 오차를 뜻한다. 강도의 정확함을 얻고 분포의 해상도를 내주는 셈이다. 편향 없는 추정기에 일부러 작은 편향을 넣어 수렴 속도를 사는, 오프라인 렌더링의 고전적인 트레이드오프다.
+첫째는 <strong>Irradiance Caching</strong>(기본 켜짐, <code>IrradianceCachingCommon.ush</code>). 첫 바운스가 도착한 지점의 간접 irradiance를 공간 해시 테이블(<code>ICHashTableFind</code>)에 누적해 둔다. 레코드는 "합산값 + 샘플 수" 형태라, 쌓일수록 그 위치의 표본 평균, 즉 수렴된 추정값이 되어 간다. 이후 다른 path가 그 근처에 도착하면 <strong>path를 이어가는 대신 캐시 값을 읽고 조기 종료</strong>한다. 이렇게 남의 계산 결과를 가져다 써도 되는 근거는 두 가지다. 하나, 디퓨즈 바운스에서 필요한 것은 "빛이 어느 방향에서 왔는가"가 아니라 코사인 가중 총량인 <strong>irradiance 하나뿐</strong>이다(02장에서 f<sub>r</sub>이 적분 밖으로 빠진 것과 같은 이유). 둘, <strong>간접광의 irradiance는 공간에서 부드럽게 변한다</strong> — 바닥 한 뼘 옆이라고 간접광이 급격히 달라지는 일은 드물기 때문에, 옆 지점에서 이미 수렴시켜 둔 값을 가져와도 거의 같은 답이 나온다. Ward의 1988년 고전 irradiance caching이 세운 가정 그대로다. 반대로 직접광은 그림자 경계에서 급변하므로 캐시 대상이 아니고, 부드러움 가정이 깨지기 쉬운 곳을 걸러내는 가드(모서리 근처 거부, 최대 조회 거리 제한, 뒷면 감지)가 붙어 있다. 물론 "근처 값으로 대신한다"는 것 자체가 작은 체계적 오차라서, Epic 문서 스스로 이 옵션을 "더 물리적으로 올바른 GI 강도를 주지만 <strong>약간의 편향(some biasing)</strong>이 생긴다"고 적어둔다. 언뜻 역설 같은 이 문장을 풀면 — <strong>"더 올바른 강도"</strong>는 캐시 레코드 하나에 수백 개의 샘플(<code>IrradianceCacheQuality = 128</code>)이 쌓이므로 같은 시간 안에 간접광의 <strong>밝기 총량</strong>이 훨씬 잘 수렴한다는 뜻이고, <strong>"약간의 편향"</strong>은 옆 지점의 값을 재사용하는 탓에 밝기의 <strong>공간적 분포</strong>가 캐시 반경만큼 뭉개진다는, 샘플을 늘려도 사라지지 않는 오차를 뜻한다. 강도의 정확함을 얻고 분포의 해상도를 내주는 셈이다. 편향 없는 추정기에 일부러 작은 편향을 넣어 수렴 속도를 사는, 오프라인 렌더링의 고전적인 트레이드오프다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-둘째는 <strong>First Bounce Ray Guiding</strong>(옵션). 본 베이크 전 시험 패스에서 텍셀 클러스터별로 "어느 방향이 밝은가"를 방향 빈에 기록하고(<code>InterlockedMax(RayGuidingLuminance[...])</code>), 그로부터 2D CDF를 만들어(<code>FirstBounceRayGuidingCDFBuild.usf</code>) 첫 바운스 방향 샘플링을 밝은 쪽 — 예컨대 실내 씬의 창문 — 으로 몰아준다. 코사인 가중만으로는 창문처럼 좁고 밝은 입사 방향을 잘 못 맞히는 문제를 중요도 샘플링으로 푸는 것이다. Irradiance Caching과 달리 이쪽은 <strong>편향을 만들지 않는다</strong> — 손대는 것이 방향을 뽑는 확률 p뿐이고, 02장 2단계에서 봤듯 p로 뽑고 p로 나누면 기대값에서 약분되어 사라지기 때문이다. 참값으로의 수렴은 그대로 둔 채 노이즈만 줄이는 순수 중요도 샘플링이다.
+둘째는 <strong>First Bounce Ray Guiding</strong>(옵션). 본 베이크 전 시험 패스에서 텍셀 클러스터별로 "어느 방향이 밝은가"를 방향 빈에 기록하고(<code>InterlockedMax(RayGuidingLuminance[...])</code>), 그로부터 2D CDF를 만들어(<code>FirstBounceRayGuidingCDFBuild.usf</code>) 첫 바운스 방향 샘플링을 실내 씬의 창문 같은 밝은 쪽으로 몰아준다. 코사인 가중만으로는 창문처럼 좁고 밝은 입사 방향을 잘 못 맞히는 문제를 중요도 샘플링으로 푸는 것이다. Irradiance Caching과 달리 이쪽은 <strong>편향을 만들지 않는다</strong> — 손대는 것이 방향을 뽑는 확률 p뿐이고, 02장 2단계에서 봤듯 p로 뽑고 p로 나누면 기대값에서 약분되어 사라지기 때문이다. 참값으로의 수렴은 그대로 둔 채 노이즈만 줄이는 순수 중요도 샘플링이다.
 </p>
 
 <span class="section-eyebrow">06 — 저장</span>
@@ -648,7 +780,7 @@ PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 계
 <tr><th>산출물</th><th>내용</th><th>인코딩 (LightmapEncoding.cpp)</th></tr>
 <tr><td><strong>HQ 라이트맵</strong> (텍스처 2장)</td><td>irradiance/π 색 + 휘도 directionality</td><td>Coeff0: <strong>LogLUVW</strong> — 크로마 U,V,W + LogL = Log2(L + BlackPoint), LogScale 11.5 (HDR을 8비트에)<br>Coeff1: L1 SH 방향 벡터 Dx,Dy,Dz + LogL 정밀도 보강용 Residual</td></tr>
 <tr><td><strong>LQ 라이트맵</strong> (모바일)</td><td>동일 정보의 저가형</td><td>Coeff2: LogRGB (SimpleLogScale 16), Coeff3: SH 방향 벡터</td></tr>
-<tr><td><strong>섀도마스크</strong></td><td>Stationary 라이트별 가시성</td><td>텍셀당 광선 128개(<code>StationaryLightShadowSamples</code>)로 가시성을 추적하는 전용 레이젠 셰이더(<code>StationaryLightShadowTracingMainRG</code>) → <strong>signed distance field</strong> 그림자 샘플로 변환. 채널당 라이트 1개, 최대 4개</td></tr>
+<tr><td><strong>섀도마스크</strong></td><td>Stationary 라이트별 가시성</td><td>텍셀당 광선 128개(<code>StationaryLightShadowSamples</code>)로 가시성을 추적하는 전용 raygen 셰이더(<code>StationaryLightShadowTracingMainRG</code>) → <strong>signed distance field</strong> 그림자 샘플로 변환. 채널당 라이트 1개, 최대 4개</td></tr>
 <tr><td><strong>Sky Bent Normal</strong></td><td>하늘이 보이는 평균 방향 + 가림 정도</td><td>그림자 드리우는 Stationary 스카이라이트용. xyz = 굽은 노멀, w = sqrt(길이)</td></tr>
 <tr><td><strong>AO 머티리얼 마스크</strong></td><td>베이크된 AO</td><td>sqrt 인코딩 1채널</td></tr>
 <tr><td><strong>볼류메트릭 라이트맵</strong></td><td>움직이는 오브젝트용 프로브 (08장)</td><td>희소 브릭 + 3밴드 SH</td></tr>
@@ -656,7 +788,7 @@ PathThroughput = NextPathThroughput / ContinuationProb;  <span class="cm">// 계
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-표의 HQ 라이트맵 줄이 압축적이라 풀어서 보자. 텍셀이 담아야 할 정보는 딱 두 가지다 — (1) 02장에서 계산한 <strong>irradiance/π 라는 HDR RGB 색 하나</strong>, (2) 그 빛이 <strong>주로 어느 방향에서 왔는지</strong>. 그런데 라이트맵은 8비트 텍스처(+블록 압축)라서 HDR 색을 그대로 못 담는다. 그래서 색을 <strong>휘도(luminance) × 색도(chromaticity)</strong>로 쪼갠다. 휘도 L은 "얼마나 밝은가"라는 스칼라 하나 — HDR이라 범위가 넓으니 <strong>log₂로 압축해 알파 채널에</strong>(LogL) 넣는다. 색도 UVW는 밝기를 제거한 순수한 색 비율 — 항상 0~1이라 sqrt 감마만 입혀 RGB 채널에 넣는다. 즉 <strong>"irradiance/π는 어디 있나"의 답은 한 채널이 아니라, 밝기는 Coeff0의 A(LogL)에, 색은 Coeff0의 RGB(UVW)에 나뉘어 있다.</strong>
+표의 HQ 라이트맵 줄이 압축적이라 풀어서 보자. 텍셀이 담아야 할 정보는 딱 두 가지다 — (1) 02장에서 계산한 <strong>irradiance/π 라는 HDR RGB 색 하나</strong>, (2) 그 빛이 <strong>주로 어느 방향에서 왔는지</strong>. 그런데 라이트맵은 8비트 텍스처(+블록 압축)라서 HDR 색을 그대로 못 담는다. 그래서 색을 <strong>휘도(luminance) × 색도(chromaticity)</strong>로 쪼갠다. 휘도 L은 "얼마나 밝은가"라는 스칼라 하나다. HDR이라 범위가 넓으니 <strong>log₂로 압축해 알파 채널에</strong>(LogL) 넣는다. 색도 UVW는 밝기를 제거한 순수한 색 비율이다. 항상 0~1이라 sqrt 감마만 입혀 RGB 채널에 넣는다. 즉 <strong>"irradiance/π는 어디 있나"의 답은 한 채널이 아니라, 밝기는 Coeff0의 A(LogL)에, 색은 Coeff0의 RGB(UVW)에 나뉘어 있다.</strong>
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -973,7 +1105,7 @@ FString CodeChunk = FString::Printf(TEXT("Parameters.AOMaterialMask"));</div>
 
 <div class="gplm-post">
 <p style="color:var(--text2);line-height:1.85;">
-라이트맵은 정적 지오메트리의 UV에 붙는다. 그럼 그 씬을 걸어다니는 캐릭터는? GPULM은 공간 자체에도 같은 패스 트레이싱을 돌린다 — <strong>볼류메트릭 라이트맵</strong>이다. 씬을 4×4×4 셀 단위의 <strong>희소 브릭 계층</strong>으로 복셀화하고(지오메트리 근처일수록 조밀), 각 복셀에서 동일한 <code>PathTracingKernel</code>을 위/아래 두 반구로 실행해 전방향 입사 radiance를 모은다. 저장은 표면 라이트맵보다 한 등급 높은 <strong>3밴드(L2) SH</strong> — AmbientVector(DC항) + RGB별 고차 계수 — 에 sky bent normal, 그리고 Stationary 디렉셔널 라이트를 향한 가림 샘플 32개로 만든 <code>DirectionalLightShadowing</code>까지 얹는다. 런타임에는 <code>GetPrecomputedIndirectLightingAndSkyLight</code>의 볼륨 경로가 브릭 텍스처에서 SH를 보간해 <code>DotSH3(IrradianceSH, CalcDiffuseTransferSH3(Normal)) / PI</code>로 평가한다 — 역시 <strong>디퓨즈 항</strong>이다. 07장과 똑같은 자리에, 텍셀 대신 프로브 보간으로 공급될 뿐이다.
+라이트맵은 정적 지오메트리의 UV에 붙는다. 그럼 그 씬을 걸어다니는 캐릭터는? GPULM은 공간 자체에도 같은 패스 트레이싱을 돌린다 — <strong>볼류메트릭 라이트맵</strong>이다. 씬을 4×4×4 셀 단위의 <strong>희소 브릭 계층</strong>으로 복셀화하고(지오메트리 근처일수록 조밀), 각 복셀에서 동일한 <code>PathTracingKernel</code>을 위/아래 두 반구로 실행해 전방향 입사 radiance를 모은다. 저장은 표면 라이트맵보다 한 등급 높은 <strong>3밴드(L2) SH</strong><span class="fn-note"><input type="checkbox" id="fn-sh3" class="fn-toggle"><label for="fn-sh3" class="fn-ref">6</label><span class="fn-body"><strong>3밴드(L2) SH:</strong> AmbientVector(DC항) + RGB별 고차 계수로 구성된다.</span></span>에 sky bent normal, 그리고 Stationary 디렉셔널 라이트를 향한 가림 샘플 32개로 만든 <code>DirectionalLightShadowing</code>까지 얹는다. 런타임에는 <code>GetPrecomputedIndirectLightingAndSkyLight</code>의 볼륨 경로가 브릭 텍스처에서 SH를 보간해 <code>DotSH3(IrradianceSH, CalcDiffuseTransferSH3(Normal)) / PI</code>로 평가한다 — 역시 <strong>디퓨즈 항</strong>이다. 07장과 똑같은 자리에, 텍셀 대신 프로브 보간으로 공급될 뿐이다.
 </p>
 
 <div class="scene-fig">
@@ -1025,6 +1157,25 @@ Lumen도 결국 같은 적분 ∫ f<sub>r</sub>·L<sub>i</sub>·cosθ dω를 푼
 표의 두 번째 줄이 가장 본질적인 차이다. 패스 트레이서는 광선이 부딪힌 곳에서 "그 지점의 빛"을 <strong>그 자리에서 새로 계산</strong>한다. Lumen의 소프트웨어 트레이싱은 SDF에 부딪히는 순간 삼각형도 UV도 없으므로 계산할 재료 자체가 없다 — 대신 <strong>미리 라이팅해둔 Surface Cache를 샘플링</strong>한다(<code>LumenSoftwareRayTracing.ush</code>의 <code>EvaluateRayHitFromSurfaceCache</code>). 그래서 Lumen GI의 정확도 상한은 언제나 "Surface Cache가 씬을 얼마나 잘 대표하는가"다. 카드 6방향 평면 투영이 못 덮는 복잡한 실내 구조나 얇은 지오메트리에서 커버리지 구멍이 생기고, 이는 문서에도 명시된 한계다(반사 속 검은 영역 등).
 </p>
 
+<p style="color:var(--text2);line-height:1.85;">
+비교를 마치기 전에, 실무에서 한 번쯤 궁금해지는 질문 하나 — <strong>Lumen을 켜 둔 채 라이트 빌드를 하면 Lumen의 빛도 같이 구워질까?</strong> 안 구워진다. 01장에서 봤듯 베이크는 화면 렌더링 파이프라인을 아예 거치지 않는다. GPULM은 자기만의 DXR 씬을 만들고, 입력은 씬 지오메트리와 광원 목록(<code>SetupPathTracingLightParameters</code>) + emissive 재질 + 스카이라이트뿐이다. Lumen은 화면 픽셀에 대해 돌아가는 런타임 GI 패스라서 베이크 과정에는 존재 자체가 없다 — 실제로 GPULightmass 플러그인 소스 전체에 Lumen 참조가 한 건도 없다. 화면에 보이는 라이팅을 캡처하는 게 아니라 렌더링 방정식을 처음부터 직접 푸는 것이니, 애초에 섞일 통로가 없는 것이다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+오히려 조심할 것은 반대 방향이다. <strong>구운 라이트맵이 있는 씬에서 Lumen GI를 켜면 이중 적용될까?</strong> 이것도 아니다 — 엔진이 라이트맵 적용을 통째로 꺼버린다.
+</p>
+
+<div class="code-block"><span class="code-lang">SceneRendering.cpp — Lumen GI가 켜지면 라이트맵 적용이 0으로 곱해진다</span><span class="cm">// If Lumen Dynamic GI is enabled then we don't want GI from Lightmaps</span>
+<span class="cm">// Note: this has the side effect of removing direct lighting from Static Lights</span>
+<span class="kw">if</span> (<span class="fn">ShouldRenderLumenDiffuseGI</span>(Scene, *<span class="kw">this</span>))
+{
+    ViewUniformShaderParameters.PrecomputedIndirectLightingColorScale = FVector3f::ZeroVector;
+}</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+07장에서 본 라이트맵 디코드 결과에는 항상 <code>PrecomputedIndirectLightingColorScale</code>이 곱해지는데, Lumen GI가 켜져 있으면 이 값이 0이 되어 라이트맵이 화면에서 완전히 무시된다. 위 주석의 부작용(side effect) 언급이 흥미롭다 — Static 라이트는 직접광조차 라이트맵에만 구워져 있으므로(04장), Lumen을 켜는 순간 Static 라이트가 화면에서 아예 사라진다. Epic 문서의 "Lumen은 Static 라이트를 지원하지 않는다"는 문장의 코드 실체가 이 한 줄이다. 스카이라이트 역시 Lumen이 켜지면 베이스 패스에서 빠지고 Lumen이 넘겨받는다(<code>BasePassRendering.cpp</code>의 "Skip base pass skylight if Lumen GI is enabled"). 정리하면 두 시스템은 섞이는 게 아니라 <strong>상호 배타적으로 스위칭</strong>된다 — Lumen을 켜 둔 채 빌드해도 라이트맵은 오염되지 않지만, 그 라이트맵을 화면에서 보려면 GI 방식을 Lumen이 아닌 것으로 바꿔야 한다.
+</p>
+
 <span class="section-eyebrow">10 — 물리성</span>
 </div>
 
@@ -1049,7 +1200,7 @@ Lumen도 결국 같은 적분 ∫ f<sub>r</sub>·L<sub>i</sub>·cosθ dω를 푼
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-그러니 <strong>방정식 충실도를 기준으로 삼으면 답은 GPU Lightmass다.</strong> 같은 정적 씬을 놓고 비교하면 GPULM의 결과가 ground truth(경로 추적 참조 해)에 훨씬 가깝다 — 애초에 GPULM 자체가 그 참조 해를 구하는 계산기의 라이트맵 버전이니까. 하지만 이 답에는 방향이 정반대인 단서가 하나 붙는다 — <strong>GPULM은 방정식의 좁은 조각만 푼다.</strong> 정적 지오메트리, Static/Stationary 라이트, 디퓨즈 항. 씬이 움직이는 순간 그 "정확한 해"는 유효하지 않은 해가 되고, 뷰 의존 항은 아예 계산 대상이 아니다. Lumen은 부정확한 대신 방정식의 <strong>더 넓은 영역</strong> — 완전 동적 씬, 디퓨즈+글로시 스페큘러 — 을 매 프레임 다시 푼다. Epic이 Lumen을 만든 이유가 정확히 라이트맵의 이 제약("긴 빌드 시간, 게임 환경에 대한 큰 제약")이었다.
+그러니 <strong>방정식 충실도를 기준으로 삼으면 답은 GPU Lightmass다.</strong> 같은 정적 씬을 놓고 비교하면 GPULM의 결과가 ground truth(경로 추적 참조 해)에 훨씬 가깝다. 애초에 GPULM 자체가 그 참조 해를 구하는 계산기의 라이트맵 버전이기 때문이다. 하지만 이 답에는 방향이 정반대인 단서가 하나 붙는다. 바로 <strong>GPULM은 방정식의 좁은 조각만 푼다</strong>는 것이다. 정적 지오메트리, Static/Stationary 라이트, 디퓨즈 항. 씬이 움직이는 순간 그 "정확한 해"는 유효하지 않은 해가 되고, 뷰 의존 항은 아예 계산 대상이 아니다. Lumen은 부정확한 대신 방정식의 <strong>더 넓은 영역</strong>(완전 동적 씬, 디퓨즈+글로시 스페큘러)을 매 프레임 다시 푼다. Epic이 Lumen을 만든 이유가 정확히 라이트맵의 이 제약("긴 빌드 시간, 게임 환경에 대한 큰 제약")이었다.
 </p>
 
 <div class="callout callout-purple">
