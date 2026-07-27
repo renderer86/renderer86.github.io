@@ -42,200 +42,15 @@ index: 25
 
 <br>
 
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+{% include research-post-style.html %}
 
-<style>
-.sh-post {
-  --bg2: #f3f3fb;
-  --surface: #f7f8fc;
-  --surface2: #edeff8;
-  --border: rgba(67,56,202,0.12);
-  --border2: rgba(67,56,202,0.26);
-  --text: #171a26;
-  --text2: #414455;
-  --text3: #7e8295;
-  --accent: #4338ca;
-  --accent2: #b45309;
-  --gold: #b07d00;
-  --teal: #0a8f72;
-  --coral: #d6304a;
-}
-.sh-post .section-eyebrow {
-  display: block;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  margin-bottom: 4px;
-  margin-top: 56px;
-}
-.sh-post .card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin: 24px 0;
-}
-.sh-post .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 18px;
-}
-.sh-post .card.blue   { border-color: rgba(67,56,202,0.20); }
-.sh-post .card.purple { border-color: rgba(180,83,9,0.22); }
-.sh-post .card.gold   { border-color: rgba(176,125,0,0.24); }
-.sh-post .card.teal   { border-color: rgba(10,143,114,0.24); }
-.sh-post .card.coral  { border-color: rgba(214,48,74,0.22); }
-.sh-post .card-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.sh-post .card-label::before { content: '// '; color: var(--text3); font-weight: 400; }
-.sh-post .card.blue   .card-label { color: var(--accent); }
-.sh-post .card.purple .card-label { color: var(--accent2); }
-.sh-post .card.gold   .card-label { color: var(--gold); }
-.sh-post .card.teal   .card-label { color: var(--teal); }
-.sh-post .card.coral  .card-label { color: var(--coral); }
-.sh-post .card-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-.sh-post .card-desc {
-  font-size: 13px;
-  color: var(--text2);
-  line-height: 1.65;
-  margin: 0;
-}
-.sh-post .callout {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid;
-  border-radius: 6px;
-  padding: 16px 20px;
-  margin: 20px 0;
-}
-.sh-post .callout::after {
-  position: absolute;
-  top: 12px;
-  right: 14px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-}
-.sh-post .callout-info { border-color: rgba(67,56,202,0.20); }
-.sh-post .callout-info::after { content: 'NOTE'; color: var(--accent); }
-.sh-post .callout-warn { border-color: rgba(176,125,0,0.24); }
-.sh-post .callout-warn::after { content: 'WARN'; color: var(--gold); }
-.sh-post .callout-purple { border-color: rgba(180,83,9,0.22); }
-.sh-post .callout-purple::after { content: 'DEEP'; color: var(--accent2); }
-.sh-post .callout-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12.5px;
-  font-weight: 600;
-  margin-bottom: 10px;
-  padding-right: 56px;
-}
-.sh-post .callout-title::before { content: '/* '; color: var(--text3); font-weight: 400; }
-.sh-post .callout-title::after { content: ' */'; color: var(--text3); font-weight: 400; }
-.sh-post .callout-info .callout-title { color: var(--accent); }
-.sh-post .callout-warn .callout-title { color: var(--gold); }
-.sh-post .callout-purple .callout-title { color: var(--accent2); }
-.sh-post .callout p { margin: 0 0 8px 0; font-size: 13px; color: var(--text2); line-height: 1.75; }
-.sh-post .callout p:last-child { margin: 0; }
-.sh-post .code-block {
-  background: #191c2e;
-  border: 1px solid rgba(145,155,225,0.15);
-  border-radius: 12px;
-  padding: 20px 22px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12.5px;
-  line-height: 1.85;
-  overflow-x: auto;
-  margin: 18px 0;
-  position: relative;
-  white-space: pre;
-  color: #ccd2e8;
-}
-.sh-post .code-block .kw  { color: #a5b4fc; }
-.sh-post .code-block .fn  { color: #86efac; }
-.sh-post .code-block .cm  { color: #5e6480; font-style: italic; }
-.sh-post .code-block .num { color: #fb923c; }
-.sh-post .code-block .str { color: #fbbf24; }
-.sh-post .code-block .ty  { color: #7dd3fc; }
-.sh-post .code-lang {
-  position: absolute;
-  top: 10px; right: 14px;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #5e6480;
-}
-.sh-post .flag-badge {
-  display: inline-block;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 5px;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-}
-.sh-post .flag-coral  { background: rgba(214,48,74,0.12);  color: var(--coral); }
-.sh-post .flag-blue   { background: rgba(67,56,202,0.12);  color: var(--accent); }
-.sh-post .flag-teal   { background: rgba(10,143,114,0.12); color: var(--teal); }
-.sh-post .flag-gold   { background: rgba(176,125,0,0.12);  color: var(--gold); }
-.sh-post .flag-purple { background: rgba(180,83,9,0.12);   color: var(--accent2); }
-.sh-post .flag-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 14px; }
-.sh-post .data-table { overflow-x: auto; margin: 24px 0; }
-.sh-post .data-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.sh-post .data-table th {
-  padding: 10px 14px; border: 1px solid var(--border);
-  background: var(--surface2); color: var(--accent);
-  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; text-align: left;
-}
-.sh-post .data-table td { padding: 9px 14px; border: 1px solid var(--border); color: var(--text2); }
-.sh-post .data-table tr:nth-child(even) td { background: var(--surface); }
-.sh-post .data-table code { font-size: 12px; }
-.sh-post .formula {
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-  border-radius: 10px;
-  padding: 14px 18px;
-  margin: 16px 0;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13.5px;
-  color: var(--text);
-  overflow-x: auto;
-  white-space: pre;
-  line-height: 1.9;
-}
-.sh-post .scene-fig {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 22px 20px;
-  margin: 26px 0;
-}
-.sh-post .scene-fig svg { width: 100%; height: auto; display: block; }
-.sh-post .scene-fig img { width: 100%; height: auto; display: block; border-radius: 10px; }
-.sh-post .scene-cap { font-size: 12px; color: var(--text3); text-align: center; margin-top: 14px; line-height: 1.65; }
-.sh-post .fig-grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
-.sh-post .fig-item img { width: 100%; height: auto; display: block; border-radius: 8px; border: 1px solid var(--border); }
-.sh-post .fig-item-label { font-size: 11.5px; color: var(--text2); text-align: center; margin-top: 8px; line-height: 1.6; }
-</style>
-
-<div class="sh-post">
+<div class="research-post">
 <span class="section-eyebrow">00 — 개요</span>
 </div>
 
 # 개요: "구면 위의 함수"를 저장하는 문제
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 간접광을 다루는 순간 반드시 만나는 저장 문제가 있다. 표면 한 점이 받는 빛은 방향마다 다르다. 하늘 쪽은 파랗고, 바닥 쪽은 바운스된 갈색이고, 창문 쪽만 밝다. 그러니 라이트 프로브 하나가 저장해야 하는 것은 값 하나가 아니라 <strong>"모든 방향 ω에 대한 빛", 즉 구면 위에 정의된 함수</strong>다. 스카이라이트도 마찬가지다. 하늘 큐브맵이 주는 diffuse 조명은 "법선이 <b>n</b>인 표면이 받는 빛"이라는, 역시 구면 위의 함수다.
 </p>
@@ -381,7 +196,7 @@ index: 25
 
 # SH는 구면 위의 푸리에 급수다
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 1차원 주기 함수를 sin·cos의 합으로 분해하는 것이 푸리에 급수다. 낮은 주파수 항 몇 개만 남기면 함수의 "대체적인 모양"이 적은 숫자로 압축된다.
 </p>
@@ -807,7 +622,7 @@ index: 25
 
 # 게임에서 SH가 살아남은 세 가지 성질
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 01장에서 basis가 "함수 공간의 좌표축"이라고 했다. 그런데 구면 함수를 담는 좌표축 세트가 SH만 있는 건 아니다. ambient cube, HL2 basis, spherical Gaussian 같은 경쟁자가 여럿 있었다(→ 10장). 그중에서 SH라는 좌표축에는 다른 basis가 흉내 내기 힘든 수학적 성질이 세 개 있고, 이 셋이 SH를 표준으로 만들었다.
 </p>
@@ -990,7 +805,7 @@ index: 25
 
 # 왜 9개인가: clamped cosine이 low-pass 필터라서
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 이제 핵심 질문이다. 왜 4개도 16개도 아닌 <strong>9개</strong>인가. 답은 2001년 Ramamoorthi &amp; Hanrahan의 "An Efficient Representation for Irradiance Environment Maps"에 있다. 요지는 한 문장이다. <strong>diffuse 표면이 받는 irradiance는 어차피 9계수 이상의 정보를 거의 담고 있지 않다.</strong>
 </p>
@@ -1125,7 +940,7 @@ L1 → L2에서 +11.7%p가 뛰고, L2 → L4는 계수를 2.8배로 늘려 +0.6%
 
 # order를 높이면 좋아지는가: 얻는 것 0, 잃는 것 셋
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 "9개로 99%면, 16개·25개로는 더 좋아지지 않나?"라는 질문에는 용도를 갈라 답해야 한다. <strong>diffuse(irradiance)용이라면 올려도 얻는 것이 거의 없다.</strong> 03장의 수열을 다시 보자. Â<sub>3</sub> = 0이다. 즉 L2에서 L3로 올려도(9 → 16계수) 컨볼루션 결과에는 <strong>더해지는 것이 하나도 없다</strong>. 새로 생긴 밴드 3 계수 7개에는 전부 0이 곱해지기 때문이다. L4까지 가야 Â<sub>4</sub> = −0.1309가 살아나는데, 이는 Â<sub>0</sub> = π의 4% 수준이다. Ramamoorthi &amp; Hanrahan은 후속 논문(JOSA A 2001)에서 이를 "irradiance는 order 2까지만 안정적으로 측정할 수 있다"고 정리했다.
 </p>
@@ -1166,7 +981,7 @@ L1 → L2에서 +11.7%p가 뛰고, L2 → L4는 계수를 2.8배로 늘려 +0.6%
 
 # 언리얼의 SH 수학 코어: 상한은 3밴드로 못 박혀 있다
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 이제 이론이 언리얼엔진 5.8 코드에 어떻게 박혀 있는지 보자. SH의 근간은 <code>Engine/Source/Runtime/Core/Public/Math/SHMath.h</code>의 템플릿 하나다.
 </p>
@@ -1245,7 +1060,7 @@ Result.V[BasisIndex] *= Scale;
 
 # Volumetric Lightmap: 9계수를 텍스처 7장에 접는 인코딩
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 언리얼에서 SH가 가장 대량으로 쓰이는 곳은 <strong>Volumetric Lightmap(VLM)</strong>이다. Lightmass가 공간을 브릭으로 덮고 셀마다 간접광을 3밴드 SH로 구워두면, 동적 오브젝트와 볼류메트릭 포그가 런타임에 이를 샘플링한다. 문제는 저장 포맷이다. 셀 하나가 RGB 9계수 = 27 float인데, float 27개를 그대로 두면 볼륨 텍스처가 감당이 안 된다. 엔진의 인코딩은 이렇다(<code>PrecomputedVolumetricLightmap.h</code>).
 </p>
@@ -1285,7 +1100,7 @@ Result.V[BasisIndex] *= Scale;
 
 # 스카이라이트: 큐브맵 하나가 float4 7개로 줄어드는 경로
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 스카이라이트는 SH의 교과서적 사용처다. 하늘 큐브맵이 만드는 diffuse 조명은 "법선 <b>n</b>인 표면이 받는 irradiance"라는 구면 함수이고, 03장에서 봤듯 이 함수는 9계수면 충분하다. 경로는 세 단계다. ① 캡처된 큐브맵을 GPU 패스가 <code>FSHVectorRGB3</code>(27계수)로 프로젝션한다(<code>ReflectionEnvironmentDiffuseIrradiance.cpp</code>의 <code>ComputeDiffuseIrradiance</code>). ② CPU가 이 계수를 셰이더용 상수 <strong>float4 7개</strong>로 패킹한다. ③ 픽셀 셰이더가 법선 하나로 그것을 평가한다.
 </p>
@@ -1323,7 +1138,7 @@ Result.V[BasisIndex] *= Scale;
 
 # Lumen도 굽고, ILC도 굽는다: 실시간과 오프라인의 같은 선택
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 SH를 "오프라인에 굽는 포맷"으로만 생각하기 쉬운데, <strong>Lumen은 매 프레임 실시간으로 SH를 굽는다.</strong> Screen Probe Gather는 화면에 깐 프로브마다 반구로 광선을 쏘아 radiance를 모으는데, 필터링 패스(<code>LumenScreenProbeFiltering.usf</code>)가 그 radiance를 <code>SHBasisFunction3</code> + <code>MulSH3</code>로 <strong>3밴드 SH에 프로젝션</strong>한다. 저장 방식은 VLM과 판박이다. DC는 <code>ScreenProbeRadianceSHAmbient</code>(float RGB)에 넣고, 상위 8계수는 DC 대비 정규화·양자화(<code>SH_QUANTIZE_DIRECTIONAL_COEFFICIENTS</code>)해서 <code>ScreenProbeRadianceSHDirectional</code>에 넣으며, 읽을 때 <code>SHDenormalizationScales</code>로 복원한다(<code>LumenScreenProbeGather.usf</code>의 <code>GetScreenProbeSH</code>). 오프라인에서 검증된 인코딩을 실시간 GI가 그대로 재사용하는 것이다. 참고로 Lumen의 Radiance Cache는 SH가 아니라 octahedral 텍스처 프로브를 쓴다. 그쪽은 <a href="/ddgi">DDGI 글</a>에서 다룬 계열이다.
 </p>
@@ -1342,7 +1157,7 @@ SH를 "오프라인에 굽는 포맷"으로만 생각하기 쉬운데, <strong>L
 
 # 엔진 전체를 관통하는 규칙: 품질 경로는 9개, 성능 경로는 4개
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 나머지 사용처까지 한꺼번에 펼치면 엔진의 일관된 규칙이 드러난다. <strong>반투명 라이팅 볼륨</strong>은 ambient 텍스처(DC) + directional 텍스처(선형 3계수)의 3D 텍스처 쌍, 즉 2밴드를 쪼개 저장한 구조다(<code>TranslucencyVolumeCommon.ush</code>의 <code>ReconstructSHCoefficients</code>가 <code>FTwoBandSHVectorRGB</code>로 재조립한다). MegaLights도 반투명 조명은 이 볼륨에 주입하므로 같은 2밴드다. <strong>Volumetric Fog</strong>는 VLM을 <code>GetVolumetricLightmapSH2</code>(2밴드)로 읽고, Henyey-Greenstein 위상 함수를 zonal harmonic으로 표현해 <code>DotSH</code> 한 번으로 산란을 적분한다. 02장의 성질 ①과 ③이 동시에 쓰이는 지점이다. 반대로 <strong>Hair 환경광</strong>은 <code>#define INTEGRATION_SH 3</code>로 3밴드를 고수한다. 머리카락이 조명 방향성에 민감하기 때문이다.
 </p>
@@ -1375,7 +1190,7 @@ SH를 "오프라인에 굽는 포맷"으로만 생각하기 쉬운데, <strong>L
 
 # 다른 엔진들의 선택: 9개 아래로 내려간 이유들
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 언리얼 밖으로 눈을 돌리면 엔진마다 선택이 갈린다. 다만 갈린 지점은 "9개보다 많이 쓰느냐"가 아니라 <strong>"9개냐, 그보다 적게냐"</strong>다. 위로 올려봐야 얻을 게 없다는 04장의 결론은 모두가 공유했고, 아래로 얼마나 깎을 수 있느냐만 다퉜다.
 </p>
@@ -1402,7 +1217,7 @@ L1로 내려간 진영(Far Cry 3, Frostbite)의 동기는 한결같이 메모리
 
 # 정리
 
-<div class="sh-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 한 문장으로 압축하면 이렇다. <strong>SH는 구면 위의 푸리에 급수이고, diffuse 조명(irradiance)은 clamped cosine 커널이 밴드 2 위를 지워버리는 저주파 함수라서 9계수(RGB 27개)로 99%가 담긴다. 그 위로는 ringing·negative lobe·제곱 비용만 남기 때문에, 언리얼을 포함한 엔진들은 L2를 상한으로 두고 성능 경로에서는 오히려 아래로(2밴드·4계수) 깎아 쓴다.</strong>
 </p>

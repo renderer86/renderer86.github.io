@@ -37,216 +37,15 @@ series: -1
 
 <br>
 
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+{% include research-post-style.html %}
 
-<style>
-.vel-post {
-  --bg2: #f4f6fb;
-  --bg3: #eef0f7;
-  --surface: #f9fafd;
-  --surface2: #eceef7;
-  --border: rgba(60,80,180,0.10);
-  --border2: rgba(60,80,180,0.22);
-  --text: #1a1d2e;
-  --text2: #464c6a;
-  --text3: #8890aa;
-  --accent: #3d63e0;
-  --accent2: #7248d4;
-  --gold: #b07d00;
-  --teal: #0a8f62;
-  --coral: #d63031;
-  --orange: #c85a00;
-}
-.vel-post .section-eyebrow {
-  display: block;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  margin-bottom: 4px;
-  margin-top: 56px;
-}
-.vel-post .card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
-  margin: 24px 0;
-}
-.vel-post .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px;
-  position: relative;
-  overflow: hidden;
-}
-.vel-post .card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-}
-.vel-post .card.blue::before   { background: var(--accent); }
-.vel-post .card.gold::before   { background: var(--gold); }
-.vel-post .card.teal::before   { background: var(--teal); }
-.vel-post .card.coral::before  { background: var(--coral); }
-.vel-post .card.purple::before { background: var(--accent2); }
-.vel-post .card.orange::before { background: var(--orange); }
-.vel-post .card-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.vel-post .card.blue   .card-label { color: var(--accent); }
-.vel-post .card.gold   .card-label { color: var(--gold); }
-.vel-post .card.teal   .card-label { color: var(--teal); }
-.vel-post .card.coral  .card-label { color: var(--coral); }
-.vel-post .card.purple .card-label { color: var(--accent2); }
-.vel-post .card.orange .card-label { color: var(--orange); }
-.vel-post .card-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-.vel-post .card-desc {
-  font-size: 13px;
-  color: var(--text2);
-  line-height: 1.65;
-  margin: 0;
-}
-.vel-post .callout {
-  border-radius: 12px;
-  padding: 18px 20px;
-  margin: 24px 0;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-.vel-post .callout-title {
-  font-weight: 700;
-  font-size: 14px;
-  margin-bottom: 8px;
-  color: var(--text);
-}
-.vel-post .callout p { font-size: 14px; color: var(--text2); line-height: 1.8; margin: 0; }
-.vel-post .callout-info    { border-left: 3px solid var(--accent); }
-.vel-post .callout-purple  { border-left: 3px solid var(--accent2); }
-.vel-post .callout-warn    { border-left: 3px solid var(--coral); }
-.vel-post .callout-gold    { border-left: 3px solid var(--gold); }
-.vel-post .callout-teal    { border-left: 3px solid var(--teal); }
-.vel-post .data-table { overflow-x: auto; margin: 24px 0; }
-.vel-post .data-table table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-  background: var(--surface);
-  border-radius: 12px;
-  overflow: hidden;
-}
-.vel-post .data-table th {
-  background: var(--surface2);
-  color: var(--text);
-  font-weight: 700;
-  text-align: left;
-  padding: 10px 14px;
-  border-bottom: 2px solid var(--border2);
-  white-space: nowrap;
-}
-.vel-post .data-table td {
-  padding: 9px 14px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text2);
-  line-height: 1.6;
-}
-.vel-post .flow-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 8px;
-  margin: 24px 0;
-}
-.vel-post .flow-step {
-  flex: 1 1 130px;
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: 10px;
-  padding: 12px 14px;
-  min-width: 130px;
-}
-.vel-post .flow-step.dim { opacity: 0.55; border-style: dashed; }
-.vel-post .flow-step.hot { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.vel-post .step-num {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
-  margin-bottom: 4px;
-}
-.vel-post .step-name { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-.vel-post .step-desc { font-size: 12.5px; color: var(--text2); line-height: 1.6; }
-.vel-post .flow-arrow {
-  align-self: center;
-  color: var(--text3);
-  font-weight: 700;
-}
-.vel-post .code-block {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px 18px;
-  margin: 20px 0;
-  color: var(--text);
-  overflow-x: auto;
-  white-space: pre;
-  line-height: 1.9;
-}
-.vel-post .code-lang {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text3);
-  margin-bottom: 8px;
-  letter-spacing: 0.04em;
-}
-.vel-post .code-block .kw  { color: var(--accent2); }
-.vel-post .code-block .fn  { color: var(--accent); }
-.vel-post .code-block .num { color: var(--gold); }
-.vel-post .code-block .cm  { color: var(--text3); }
-.vel-post .code-block .str { color: var(--teal); }
-.vel-post .bit-row {
-  display: flex;
-  gap: 4px;
-  margin: 20px 0;
-  font-family: 'JetBrains Mono', monospace;
-  flex-wrap: wrap;
-}
-.vel-post .bit-cell {
-  flex: 1 1 90px;
-  text-align: center;
-  border-radius: 8px;
-  padding: 10px 6px;
-  font-size: 12px;
-  line-height: 1.5;
-  border: 1px solid var(--border2);
-  background: var(--surface);
-  color: var(--text2);
-}
-.vel-post .bit-cell b { display:block; font-size: 12.5px; color: var(--text); }
-.vel-post .bit-cell.blue   { border-color: var(--accent);  background: rgba(61,99,224,0.07); }
-.vel-post .bit-cell.gold   { border-color: var(--gold);    background: rgba(176,125,0,0.07); }
-.vel-post .bit-cell.coral  { border-color: var(--coral);   background: rgba(214,48,49,0.07); }
-.vel-post .bit-cell.purple { border-color: var(--accent2); background: rgba(114,72,212,0.07); }
-</style>
-
-<div class="vel-post">
+<div class="research-post">
 <span class="section-eyebrow">00 — 개요</span>
 </div>
 
 # 개요: "이 픽셀은 이전 프레임에 어디 있었나"
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 현대 실시간 렌더링의 품질은 상당 부분 <strong>시간축 재사용</strong>에서 나온다. TAA와 TSR은 지난 프레임들의 샘플을 누적해 슈퍼샘플링을 흉내 내고, 모션 블러는 픽셀이 한 프레임 동안 움직인 궤적을 따라 색을 번지게 하고, Lumen과 레이트레이싱 디노이저는 픽셀당 광선 몇 개짜리 노이즈를 히스토리로 눌러 편다. 방법은 제각각이지만 이들이 던지는 첫 질문은 정확히 같다 — <strong>"지금 이 픽셀에 보이는 표면은, 이전 프레임에는 화면 어디에 있었나?"</strong>
 </p>
@@ -276,7 +75,7 @@ velocity 버퍼가 "그냥 화면 차분 아닌가" 싶지만, 실제 구현은 
 
 # 정점을 두 번 변환한다 — 현재의 행렬로 한 번, 이전 프레임의 행렬로 한 번
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 velocity의 본질은 한 문장이다. <strong>같은 정점을 현재 프레임의 변환으로 한 번, 이전 프레임의 변환으로 한 번, 총 두 번 클립 공간에 투영하고 그 차이를 기록한다.</strong> "이전 프레임의 변환"에는 이전 프레임의 오브젝트 트랜스폼(LocalToWorld)과 이전 프레임의 카메라 행렬(ViewProjection)이 모두 들어가므로, 오브젝트가 움직였든 카메라가 움직였든 둘 다 자연스럽게 벡터에 포함된다.
 </p>
@@ -321,7 +120,7 @@ Output.Position = ScreenPos;   <span class="cm">// 래스터라이즈는 현재 
 
 # "이전 프레임"은 공짜가 아니다 — 트랜스폼·본·WPO의 한 프레임 시프트
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 셰이더가 <code>VertexFactoryGetPreviousWorldPosition</code>을 호출할 수 있으려면, 누군가 이전 프레임의 트랜스폼을 <strong>버리지 않고 한 프레임 더 들고 있어야</strong> 한다. UE는 이걸 세 층으로 관리한다.
 </p>
@@ -353,7 +152,7 @@ Output.Position = ScreenPos;   <span class="cm">// 래스터라이즈는 현재 
 
 # 전부 그리지 않는다 — 3단 게이팅과 기본 머티리얼 스왑
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 화면의 대부분은 정지한 배경이다. 정지한 픽셀의 모션은 카메라 행렬만으로 계산할 수 있으므로(→ 07장), velocity 패스는 <strong>그 계산으로 답이 안 나오는 것들만</strong> 그리면 된다. UE는 이를 <code>FOpaqueVelocityMeshProcessor</code>의 3단 검사로 거른다.
 </p>
@@ -392,7 +191,7 @@ Output.Position = ScreenPos;   <span class="cm">// 래스터라이즈는 현재 
 
 # r.VelocityOutputPass — 같은 데이터, 세 가지 타이밍
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 velocity를 <em>언제</em> 그릴지는 read-only CVar <code>r.VelocityOutputPass</code>가 정한다(<code>VelocityRendering.cpp:30-37</code>). 값에 따라 프레임 타임라인이 실제로 달라진다.
 </p>
@@ -433,7 +232,7 @@ velocity를 <em>언제</em> 그릴지는 read-only CVar <code>r.VelocityOutputPa
 
 # 16비트 네 채널에 모션·깊이·플래그를 욱여넣기
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 velocity 텍스처(<code>SceneVelocity</code>)는 <code>SceneTextures.cpp:727</code>에서 만들어지고, 포맷은 플랫폼에 따라 갈린다(<code>FVelocityRendering::GetFormat</code>, <code>VelocityRendering.cpp:786-800</code>).
 </p>
@@ -479,7 +278,7 @@ EncodedV.w = ...((Vz &amp; VELOCITY_Z_LOW_MASK) | <span class="fn">FlagBits</spa
 
 # 안 그린 픽셀은 어떻게 되나 — x > 0 규약과 ClipToPrevClip
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 3장의 게이팅 때문에 velocity 텍스처의 대부분은 클리어 값 (0,0) 그대로다. 그런데 카메라가 도는 동안에는 정지한 벽도 화면에서는 움직인다 — 이 모션은 누가 계산하나? 답: <strong>소비자가 각자, depth로부터</strong>. 정지한 표면의 이전 프레임 위치는 오브젝트 정보가 필요 없다. 현재 픽셀의 (ScreenPos, DeviceZ)를 <code>View.ClipToPrevClip</code>(현재 클립 → 이전 프레임 클립 행렬) 하나로 되돌리면 끝이다.
 </p>
@@ -507,7 +306,7 @@ EncodedV.w = ...((Vz &amp; VELOCITY_Z_LOW_MASK) | <span class="fn">FlagBits</spa
 
 # 반투명 velocity — 순서의 문제, 그리고 비트만 마킹하는 패스
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 반투명은 velocity가 곤란한 물건이다. depth를 쓰지 않으니 "이 픽셀의 표면"이 하나로 정해지지 않고, 그렇다고 무시하면 움직이는 반투명(캐릭터 위 이펙트, 유리창)이 히스토리를 오염시킨다. UE의 답은 <strong>별도의 늦은 패스</strong>다. <code>EVelocityPass::Translucent</code>는 translucency 컬러 합성이 <em>모두 끝난 뒤</em> 실행되어 velocity와 함께 <strong>depth까지 쓴다</strong>(<code>VelocityRendering.h:25-26</code>). 이미 색은 다 섞였으니 이제 depth를 써도 컬러에 영향이 없고, 뒤이은 DoF·모션 블러·TSR은 반투명 표면의 depth/velocity를 갖게 된다. 대상은 머티리얼에서 명시적으로 "Output Velocity"를 켠 것만이고, 이 패스는 depth를 쓰는 특성상 <strong>움직임 여부로 컬링하지 않는다</strong>(<code>:1068-1081</code> — 안 그리면 DoF가 깨진다는 주석이 달려 있다).
 </p>
@@ -521,7 +320,7 @@ EncodedV.w = ...((Vz &amp; VELOCITY_Z_LOW_MASK) | <span class="fn">FlagBits</spa
 
 # 한 장의 버퍼, 다섯 갈래의 소비
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 이제 완성된 버퍼가 어디로 가는지 보자. <code>ShouldRenderVelocities()</code>(<code>VelocityRendering.cpp:349-391</code>)에 나열된 소비자 목록이 곧 지도다 — TAA/temporal 계열, 모션 블러, Distance Field AO, SSR temporal, 레이트레이싱 디노이저, SSGI, Lumen, distortion. 소비 방식은 크게 다섯 갈래다.
 </p>
@@ -544,7 +343,7 @@ EncodedV.w = ...((Vz &amp; VELOCITY_Z_LOW_MASK) | <span class="fn">FlagBits</spa
 
 # CVar 지도와 고스팅 디버깅 순서
 
-<div class="vel-post">
+<div class="research-post">
 
 <div class="data-table">
 <table>
@@ -578,7 +377,7 @@ EncodedV.w = ...((Vz &amp; VELOCITY_Z_LOW_MASK) | <span class="fn">FlagBits</spa
 
 # 정리
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 <code>RenderVelocities</code>는 화려한 패스가 아니다. 하지만 이 글에서 본 것처럼, 그 밑에는 일관된 설계가 깔려 있다 — <strong>① 같은 정점을 두 프레임의 변환(행렬·WPO·본)으로 두 번 투영해 차이를 기록하고, ② 그 "이전 프레임 변환"을 CPU(FSceneVelocityData)와 GPU(GPUScene·스킨캐시)가 한 프레임 시프트로 이어주며, ③ 답이 depth만으로 복원 가능한 정지 픽셀은 아예 그리지 않고(0.499 인코딩과 x&gt;0 규약), ④ 그려야 하는 것들은 depth pass에 얹어 거의 공짜로 처리한다(DDM_AllOpaqueNoVelocity).</strong> 여기에 Lumen/RT를 위한 depth 성분과 숨은 플래그 비트, 반투명을 위한 늦은 패스와 아토믹 마킹 패스가 곁가지로 붙는다.
 </p>
@@ -592,7 +391,7 @@ temporal 기법의 품질 문제는 대부분 "히스토리를 언제 믿을 것
 
 # 참고
 
-<div class="vel-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 <strong>소스 (UE 5.8)</strong><br>
 - <code>Engine/Source/Runtime/Renderer/Private/VelocityRendering.cpp / .h</code> — 패스 본체, 메시 프로세서, 게이팅, CVar<br>
