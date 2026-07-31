@@ -35,140 +35,15 @@ series: -1
 
 <br>
 
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+{% include research-post-style.html %}
 
-<style>
-.hzbo-post {
-  --surface: #f8fafd;
-  --surface2: #edf2f9;
-  --border: rgba(14,116,182,0.12);
-  --border2: rgba(14,116,182,0.26);
-  --text: #16202e;
-  --text2: #3f4c60;
-  --text3: #8592a6;
-  --accent: #0e74b6;
-  --accent2: #7248d4;
-  --gold: #b07d00;
-  --teal: #0a8f72;
-  --coral: #d6304a;
-}
-.hzbo-post .section-eyebrow {
-  display: block;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  margin-bottom: 4px;
-  margin-top: 56px;
-}
-.hzbo-post .callout {
-  border-radius: 12px;
-  padding: 18px 22px;
-  margin: 24px 0;
-  border: 1px solid;
-  position: relative;
-  overflow: hidden;
-}
-.hzbo-post .callout::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-}
-.hzbo-post .callout-info { background: rgba(14,116,182,0.05); border-color: rgba(14,116,182,0.18); }
-.hzbo-post .callout-info::before { background: var(--accent); }
-.hzbo-post .callout-warn { background: rgba(176,125,0,0.05); border-color: rgba(176,125,0,0.20); }
-.hzbo-post .callout-warn::before { background: var(--gold); }
-.hzbo-post .callout-purple { background: rgba(114,72,212,0.05); border-color: rgba(114,72,212,0.18); }
-.hzbo-post .callout-purple::before { background: var(--accent2); }
-.hzbo-post .callout-title {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
-  text-transform: uppercase; margin-bottom: 6px;
-}
-.hzbo-post .callout-info .callout-title { color: var(--accent); }
-.hzbo-post .callout-warn .callout-title { color: var(--gold); }
-.hzbo-post .callout-purple .callout-title { color: var(--accent2); }
-.hzbo-post .callout p { margin: 0; font-size: 14px; color: var(--text2); line-height: 1.78; }
-.hzbo-post .callout p + p { margin-top: 10px; }
-.hzbo-post .data-table { overflow-x: auto; margin: 24px 0; }
-.hzbo-post .data-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.hzbo-post .data-table th {
-  padding: 10px 14px; border: 1px solid var(--border);
-  background: var(--surface2); color: var(--accent);
-  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; text-align: left;
-}
-.hzbo-post .data-table td { padding: 9px 14px; border: 1px solid var(--border); color: var(--text2); line-height: 1.65; vertical-align: top; }
-.hzbo-post .data-table tr:nth-child(even) td { background: var(--surface); }
-.hzbo-post .data-table code { font-size: 12px; }
-.hzbo-post .code-block {
-  background: #101722;
-  border: 1px solid rgba(90,160,220,0.16);
-  border-radius: 12px;
-  padding: 20px 22px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12.5px;
-  line-height: 1.8;
-  overflow-x: auto;
-  margin: 20px 0;
-  position: relative;
-  white-space: pre;
-  color: #cfdbea;
-}
-.hzbo-post .code-block .kw { color: #c4b5fd; }
-.hzbo-post .code-block .fn { color: #5eead4; }
-.hzbo-post .code-block .cm { color: #64748b; font-style: italic; }
-.hzbo-post .code-block .num { color: #fb923c; }
-.hzbo-post .code-block .hl { color: #7dd3fc; font-weight: 500; }
-.hzbo-post .code-lang {
-  position: absolute; top: 10px; right: 14px;
-  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b;
-}
-.hzbo-post .scene-fig {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 22px 20px;
-  margin: 26px 0;
-}
-.hzbo-post .scene-fig img { width: 100%; height: auto; display: block; border-radius: 10px; }
-.hzbo-post .scene-cap { font-size: 12px; color: var(--text3); text-align: center; margin-top: 14px; line-height: 1.65; }
-.hzbo-post .vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 24px 0; }
-@media (max-width: 640px) { .hzbo-post .vs-grid { grid-template-columns: 1fr; } }
-.hzbo-post .vs-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px;
-  position: relative;
-  overflow: hidden;
-}
-.hzbo-post .vs-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-.hzbo-post .vs-card.cpu::before { background: var(--accent); }
-.hzbo-post .vs-card.gpu::before { background: var(--accent2); }
-.hzbo-post .vs-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
-.hzbo-post .vs-card.cpu h4 { color: var(--accent); }
-.hzbo-post .vs-card.gpu h4 { color: var(--accent2); }
-.hzbo-post .vs-card p { font-size: 13px; color: var(--text2); line-height: 1.7; margin: 0 0 8px; }
-.hzbo-post .vs-card p:last-child { margin-bottom: 0; }
-.hzbo-post .summary-box {
-  background: linear-gradient(135deg, rgba(14,116,182,0.06) 0%, rgba(114,72,212,0.06) 100%);
-  border: 1px solid rgba(14,116,182,0.18);
-  border-radius: 16px;
-  padding: 32px;
-  margin: 32px 0;
-}
-.hzbo-post .summary-box h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; color: var(--text); }
-.hzbo-post .summary-box p { margin: 0 0 12px; font-size: 15px; line-height: 1.85; color: var(--text2); }
-.hzbo-post .summary-box p:last-child { margin-bottom: 0; }
-</style>
-
-<div class="hzbo-post">
+<div class="research-post">
 <span class="section-eyebrow" style="margin-top:0;">00 — 개요</span>
 </div>
 
 # 렌더러는 이전 프레임의 결과값으로 현재 프레임을 컬링한다
 
-<div class="hzbo-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 언리얼의 render thread가 한 프레임에서 가장 먼저 하는 일은 <strong>visibility 계산</strong>이다 — <code>InitViews</code>에서 프러스텀 컬링을 하고, occlusion 컬링으로 "다른 물체에 가려진 것"을 걸러내 이번 프레임에 그릴 목록을 확정한다. 그런데 이 occlusion 판정에 쓰이는 데이터를 들여다보면 이상한 점이 있다. HZB(Hierarchical Z-Buffer) 테스트 결과든 하드웨어 occlusion query 결과든, <strong>전부 이전 프레임에 GPU가 계산해 둔 것</strong>이다. 프레임 N의 컬링은 프레임 N-1(설정에 따라 N-2, N-4까지)의 장면을 근거로 이루어진다.
 </p>
@@ -187,7 +62,7 @@ series: -1
 
 # 두 개의 occlusion 시스템, 하나의 공통점
 
-<div class="hzbo-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 UE의 CPU visibility 파이프라인에는 occlusion 컬링 시스템이 둘 있고, <code>r.HZBOcclusion</code>으로 고른다. CVar 정의(<code>SceneVisibility.cpp:123</code>)의 주석이 곧 요약이다:
 </p>
@@ -217,7 +92,7 @@ UE의 CPU visibility 파이프라인에는 occlusion 컬링 시스템이 둘 있
 
 # 소비가 생산보다 먼저 온다 — 닭과 달걀
 
-<div class="hzbo-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 <code>FDeferredShadingSceneRenderer::Render</code>의 실제 순서를 따라가 보자. 프레임 N에서 일어나는 일이다.
 </p>
@@ -254,7 +129,7 @@ GraphBuilder.QueueTextureExtraction(FurthestHZBTexture, &amp;View.ViewState-&gt;
 
 # 기다리면 안 되는 이유 — GPU는 원래 한 프레임 뒤에서 달린다
 
-<div class="hzbo-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 CPU(render thread)와 GPU는 직렬이 아니라 <strong>파이프라인</strong>으로 돈다. render thread가 프레임 N의 커맨드를 녹화·제출하는 동안 GPU는 아직 프레임 N-1을 그리고 있는 것이 정상 상태다. 이 어긋남이 있어야 양쪽 모두 쉬지 않고 일한다. 이 상태에서 render thread가 "방금 제출한 프레임 N의 occlusion 테스트 결과를 달라"고 기다리면 무슨 일이 벌어지는가 — GPU가 N-1을 마저 끝내고, N의 depth를 그리고, 테스트까지 실행하는 동안 CPU는 정지한다. 그 사이 CPU가 놀았으니 다음 프레임 제출이 늦어지고, 이번엔 GPU가 굶는다. <strong>readback 한 번의 대기가 파이프라인 전체를 직렬화시킨다.</strong>
 </p>
@@ -295,7 +170,7 @@ NumExtraMobileFrames++;</div>
 
 # 하드웨어 쿼리: 프레임 개수만큼의 링버퍼
 
-<div class="hzbo-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 지연을 받아들이기로 했으면, 구현 문제는 "N프레임 전에 발행한 쿼리를 어디에 보관했다가 어떻게 찾아 읽는가"가 된다. 프리미티브마다 <code>FPrimitiveOcclusionHistory</code>(<code>SceneViewOcclusionHistory.h:57</code>)가 뷰 스테이트에 살아남아 프레임 경계를 넘는다:
 </p>
@@ -353,7 +228,7 @@ FRHIRenderQuery* PastQuery = PrimitiveOcclusionHistory-&gt;<span class="fn">GetQ
 
 # HZB 테스터: 텍스처 readback의 1프레임 사이클
 
-<div class="hzbo-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 기본값인 HZB 경로(<code>FHZBOcclusionTester</code>)는 쿼리 오브젝트 대신 <strong>텍스처 readback</strong>으로 같은 구조를 만든다. 프레임 N에서 벌어지는 사이클 전체가 이 시스템의 요약이다:
 </p>
@@ -394,7 +269,7 @@ stale 결과 방어는 <code>ValidFrameNumber</code>가 맡는다. 테스트가 
 
 # popping, 그리고 지연을 계약으로 만드는 장치들
 
-<div class="hzbo-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 1프레임 지연의 대가는 명확하다. 카메라가 빠르게 돌거나 가리개가 치워지면, "그 물체가 보인다"는 사실을 GPU가 확인한 것은 이번 프레임인데 CPU가 그 답을 받는 것은 다음 프레임이다 — 그 사이 한 프레임 동안 물체는 <strong>실제로는 보여야 하는데 그려지지 않는다</strong>. 이것이 occlusion popping이다. CSM(캐스케이드 섀도맵) occlusion이 기본 꺼져 있는 이유를 설명하는 주석(<code>SceneOcclusion.cpp:60</code>)이 이 한계를 정확한 용어로 부른다 — "rapid view changes reveal new regions too quickly for <strong>latent occlusion queries</strong> to work with". 엔진 스스로 이 시스템을 <strong>latent</strong>(잠복성) 쿼리라고 부르는 것이다.
 </p>
@@ -430,7 +305,7 @@ stale 결과 방어는 <code>ValidFrameNumber</code>가 맡는다. 테스트가 
 
 # Nanite two-pass: 기다리지 말고, 소비자를 GPU로 옮겨라
 
-<div class="hzbo-post">
+<div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
 이 지연 문제의 근본 원인을 다시 짚으면 — <strong>생산자는 GPU인데 소비자가 CPU</strong>라서다. 그렇다면 소비자까지 GPU로 옮기면? 컬링 판정과 드로우 생성이 모두 GPU에서 일어나면 readback이 사라지고, 같은 프레임 안에서 "이전 프레임 근사 → 이번 프레임 검증"의 2단계를 모두 돌 수 있다. Nanite의 two-pass occlusion(<code>r.Nanite.Culling.TwoPass</code>)이 정확히 이 구조다.
 </p>
@@ -471,12 +346,89 @@ PostPassBinning = AddPass_Rasterize(...);        <span class="cm">// 이번 프�
 
 # 정리
 
-<div class="hzbo-post">
+<div class="research-post">
 <div class="summary-box">
 <h3>왜 이렇게 되는가</h3>
 <p><strong>순서:</strong> visibility(소비)는 프레임 맨 앞에서 돌고, occlusion 데이터(생산 — depth, HZB, 쿼리 결과)는 그 뒤에 GPU에서 만들어진다. 같은 프레임 소비는 순서상 불가능하다. <strong>파이프라이닝:</strong> GPU는 CPU보다 한 프레임 뒤에서 달리는 것이 정상이므로, 이번 프레임 결과를 재촉하는 readback은 파이프라인 전체를 직렬화시킨다. 엔진은 기다리는 대신 <strong>이전 프레임의 결과값을 사용</strong>하며, <code>r.NumBufferedOcclusionQueries</code> 주석이 이 트레이드오프(stall ↔ out-of-date 아티팩트)를 명시한다.</p>
 <h3>왜 이렇게 구현되었는가</h3>
 <p>지연을 전제로 한 계약을 안전하게 만드는 방향이다. 하드웨어 쿼리는 <code>PendingOcclusionQuery</code> 링버퍼(<code>CurrentFrame % NumBufferedFrames</code> — 읽기가 쓰기보다 먼저 오니 같은 슬롯을 재활용), HZB는 <code>FRHIGPUTextureReadback</code>의 1프레임 사이클로 지연을 구현하고, <code>ValidFrameNumber</code>·<code>LagTolerance</code>가 어긋난 시점의 답을 폐기하며, <code>WasOccludedLastFrame</code> 폴백·<code>OCCLUSION_SLOP</code>·신규 진입 bbox 확장·4×4 min-depth 보수 테스트가 "애매하면 visible" 원칙으로 popping을 누른다. 실패 모드는 언제나 덜 컬링하는 쪽이다.</p>
 <p>그리고 이 지연을 진짜로 없애는 방법은 기다리는 것이 아니라 <strong>소비자를 GPU로 옮기는 것</strong>이었다 — Nanite two-pass는 이전 프레임 HZB로 1차 컬링하고, 이번 프레임 depth로 HZB를 재빌드해 같은 프레임 안에서 탈락자를 재심사한다. readback이 없으니 지연도 없다. 이전 프레임의 결과값으로 컬링하는 CPU 경로와, 그 결과를 1차 근사로만 사용한 뒤 현재 프레임 안에서 검증을 끝내는 GPU 경로 — 두 설계의 차이는 결국 "결과를 누가 소비하는가" 하나로 수렴한다.</p>
+</div>
+</div>
+
+<div class="research-post">
+<span class="section-eyebrow">09 — 히트맵</span>
+</div>
+
+# 언제 1프레임 지연이 눈에 띄는가
+
+<div class="research-post">
+<p style="color:var(--text2);line-height:1.85;">
+이전 프레임의 가시성 결과가 현재 프레임과 크게 달라질수록 popping 위험이 커진다. 아래 히트맵은 <strong>카메라의 각운동</strong>과 <strong>가리개·오브젝트의 가시성 변화</strong>를 함께 놓고, stale occlusion 결과가 화면에 드러날 가능성을 1(낮음)~5(매우 높음)로 정리한 정성적 디버깅 가이드다.
+</p>
+
+<div class="heatmap-panel">
+<div class="heatmap-heading">Stale occlusion artifact risk</div>
+<div class="heatmap-subtitle">열: 카메라 움직임 · 행: 씬의 가시성 변화 · 값: popping/늦은 등장 위험도</div>
+<div class="heatmap-scroll">
+<div class="heatmap-grid" role="img" aria-label="카메라 움직임과 씬 가시성 변화에 따른 오클루전 지연 아티팩트 위험도 히트맵">
+<div class="heatmap-axis corner">가시성 변화 ↓<br>카메라 움직임 →</div>
+<div class="heatmap-axis">정지</div>
+<div class="heatmap-axis">느림</div>
+<div class="heatmap-axis">보통</div>
+<div class="heatmap-axis">빠른 회전</div>
+<div class="heatmap-axis">컷·텔레포트</div>
+
+<div class="heatmap-axis row">정적 지오메트리</div>
+<div class="heat-cell heat-1"><span class="heat-value">1</span><span class="heat-label">LOW</span></div>
+<div class="heat-cell heat-1"><span class="heat-value">1</span><span class="heat-label">LOW</span></div>
+<div class="heat-cell heat-2"><span class="heat-value">2</span><span class="heat-label">MILD</span></div>
+<div class="heat-cell heat-3"><span class="heat-value">3</span><span class="heat-label">MID</span></div>
+<div class="heat-cell heat-5"><span class="heat-value">5</span><span class="heat-label">HIGH</span></div>
+
+<div class="heatmap-axis row">느린 가리개 이동</div>
+<div class="heat-cell heat-1"><span class="heat-value">1</span><span class="heat-label">LOW</span></div>
+<div class="heat-cell heat-2"><span class="heat-value">2</span><span class="heat-label">MILD</span></div>
+<div class="heat-cell heat-2"><span class="heat-value">2</span><span class="heat-label">MILD</span></div>
+<div class="heat-cell heat-3"><span class="heat-value">3</span><span class="heat-label">MID</span></div>
+<div class="heat-cell heat-5"><span class="heat-value">5</span><span class="heat-label">HIGH</span></div>
+
+<div class="heatmap-axis row">빠른 오브젝트 이동</div>
+<div class="heat-cell heat-2"><span class="heat-value">2</span><span class="heat-label">MILD</span></div>
+<div class="heat-cell heat-2"><span class="heat-value">2</span><span class="heat-label">MILD</span></div>
+<div class="heat-cell heat-3"><span class="heat-value">3</span><span class="heat-label">MID</span></div>
+<div class="heat-cell heat-4"><span class="heat-value">4</span><span class="heat-label">HOT</span></div>
+<div class="heat-cell heat-5"><span class="heat-value">5</span><span class="heat-label">HIGH</span></div>
+
+<div class="heatmap-axis row">가리개 제거·문 열림</div>
+<div class="heat-cell heat-4"><span class="heat-value">4</span><span class="heat-label">HOT</span></div>
+<div class="heat-cell heat-4"><span class="heat-value">4</span><span class="heat-label">HOT</span></div>
+<div class="heat-cell heat-4"><span class="heat-value">4</span><span class="heat-label">HOT</span></div>
+<div class="heat-cell heat-5"><span class="heat-value">5</span><span class="heat-label">HIGH</span></div>
+<div class="heat-cell heat-5"><span class="heat-value">5</span><span class="heat-label">HIGH</span></div>
+
+<div class="heatmap-axis row">신규 등장·텔레포트</div>
+<div class="heat-cell heat-3"><span class="heat-value">3</span><span class="heat-label">MID</span></div>
+<div class="heat-cell heat-3"><span class="heat-value">3</span><span class="heat-label">MID</span></div>
+<div class="heat-cell heat-4"><span class="heat-value">4</span><span class="heat-label">HOT</span></div>
+<div class="heat-cell heat-5"><span class="heat-value">5</span><span class="heat-label">HIGH</span></div>
+<div class="heat-cell heat-5"><span class="heat-value">5</span><span class="heat-label">HIGH</span></div>
+</div>
+</div>
+
+<div class="heatmap-legend">
+<span>낮음</span>
+<span class="heatmap-legend-swatch heat-1"></span>
+<span class="heatmap-legend-swatch heat-2"></span>
+<span class="heatmap-legend-swatch heat-3"></span>
+<span class="heatmap-legend-swatch heat-4"></span>
+<span class="heatmap-legend-swatch heat-5"></span>
+<span>높음</span>
+</div>
+</div>
+
+<div class="callout callout-info">
+<div class="callout-title">읽는 법</div>
+<p>이 값은 엔진에서 측정한 밀리초나 발생 확률이 아니다. 이전 프레임과 현재 프레임 사이에 occlusion 판정 입력이 얼마나 크게 달라지는지를 시각화한 <strong>정성 위험도</strong>다. 실제 디버깅에서는 빨간 영역의 재현 조건부터 카메라 회전 속도, bounds 확장, HZB/쿼리 경로와 프레임 지연을 함께 캡처하면 된다.</p>
 </div>
 </div>

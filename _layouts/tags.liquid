@@ -26,10 +26,6 @@ layout: page
     }
   }
 
-  .meta2 {
-    font-size: 1.125rem;
-    color: var(--gray300);
-  }
   .site-footer {
     margin-top: 4rem;
   }
@@ -92,7 +88,6 @@ layout: page
                   <i class="far fa-sticky-note" aria-hidden="true"></i>
                   {{ page.title }}
                 </a>
-                {% include blog/post_info.liquid date=page.date %}
               </h4>
             {% endif %}
           {% endif %}
@@ -108,7 +103,6 @@ layout: page
                   {{ post.title }}
                 </a>
 
-                {% include blog/post_info.liquid date=post.date %}
               </h4>
             {% endif %}
           {% endif %}

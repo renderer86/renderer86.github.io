@@ -52,14 +52,6 @@ header {
   text-transform: uppercase;
 }
 
-.meta2 {
-  color: var(--gray4);
-  letter-spacing: 0.02em;
-  margin: 0;
-  text-transform: uppercase;
-  font-weight: normal;
-}
-
 /* --- Post info --- */
 .post-info {
   /* For border in author
@@ -120,11 +112,6 @@ header {
 
     .meta {
       color: var(--gray500);
-      font-size: 1rem;
-    }
-
-    .meta2 {
-      color: var(--gray300);
       font-size: 1rem;
     }
 
