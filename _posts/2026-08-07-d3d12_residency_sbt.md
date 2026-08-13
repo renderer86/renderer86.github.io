@@ -6,7 +6,7 @@ icon: paper
 permalink: d3d12-residency-sbt
 categories: Rendering
 tags: [ComputerGraphics, Rendering, D3D12, DirectX12, Residency, WDDM, ShaderBindingTable, SBT, RayTracing, DXR, Bindless, PageFault, UnrealEngine]
-excerpt: "작업관리자 GPU 탭에는 이상한 숫자가 있다. '전용 GPU 메모리'는 그래픽카드의 VRAM 크기 그대로인데, 그 옆의 'GPU 메모리'는 80GB처럼 VRAM보다 훨씬 큰 값이 찍힌다. GPU 메모리도 CPU 메모리처럼 가상화되어 있다는 뜻이고, 지금 VRAM에 실제로 올라와 있는 것과 시스템 RAM으로 밀려난 것을 누군가 매 Submit마다 갈라 관리하고 있다는 뜻이다. D3D12에서 그 누군가는 드라이버가 아니라 애플리케이션 자신이다. 이 글은 언리얼엔진 5.8 소스로 그 관리의 전모를 추적한다. 리소스의 GPU 주소가 레이트레이싱 SBT 레코드에 기록되는 순간(한 번)과, 그 주소의 리소스를 '이번 Submit에서 씁니다'라고 residency 매니저에 신고하는 순간(매번)이라는 두 흐름이 이 시스템의 뼈대다. 1,773줄짜리 d3dx12residency.h의 LRU와 grace period(예산 70%부터 60초→1초), 32MiB 풀 블록이라는 residency의 단위, SBT 레코드 한 줄의 바이트 레이아웃과 bindless 시대의 바인딩 두 경로, TLAS가 대신 신고해 주는 간접 참조들, 그리고 두 흐름이 어긋났을 때 GPU 페이지 폴트가 DRED 덤프에 남기는 시그니처까지. 크래시 덤프의 주소 한 줄을 읽을 수 있게 되는 것이 이 글의 목표다."
+excerpt: "작업관리자 GPU 탭에는 이상한 숫자가 있다. '전용 GPU 메모리'는 그래픽카드의 VRAM 크기 그대로인데, 그 옆의 'GPU 메모리'는 80GB처럼 VRAM보다 훨씬 큰 값이 찍힌다. GPU 메모리도 CPU 메모리처럼 가상화되어 있다는 뜻이고, 지금 VRAM에 실제로 올라와 있는 것과 시스템 RAM으로 밀려난 것을 누군가 매 Submit마다 갈라 관리하고 있다는 뜻이다. D3D12에서 그 누군가는 드라이버가 아니라 애플리케이션 자신이다. 이 글은 언리얼엔진 5.8 소스로 그 관리의 전모를 추적한다. 리소스의 GPU 주소가 레이트레이싱 SBT 레코드에 기록되는 순간(한 번)과, 그 주소의 리소스를 '이번 Submit에서 씁니다'라고 residency 매니저에 등록하는 순간(매번)이라는 두 흐름이 이 시스템의 뼈대다. 1,773줄짜리 d3dx12residency.h의 LRU와 grace period(예산 70%부터 60초→1초), 풀 블록(기본 32MiB)이라는 residency의 단위, SBT 레코드 한 줄의 바이트 레이아웃과 bindless 시대의 바인딩 두 경로, TLAS가 대신 등록해 주는 간접 참조들, 그리고 두 흐름이 어긋났을 때 GPU 페이지 폴트가 DRED 덤프에 남기는 시그니처까지. 크래시 덤프의 주소 한 줄을 읽을 수 있게 되는 것이 이 글의 목표다."
 back_color: "#ffffff"
 img_name: "d3d12-residency-sbt-core-sketch.webp"
 toc: false
@@ -31,13 +31,13 @@ index: 33
 > - 작업관리자 "GPU 메모리 80GB"의 계산식(전용 VRAM + 시스템 RAM의 절반)과 WDDM 메모리 가상화의 구조
 > - D3D12 residency의 핵심 계약: Evict는 "회수해도 된다"는 허가이고, evict된 주소를 GPU가 읽으면 페이지 폴트라는 것
 > - 언리얼이 쓰는 MS 오픈소스 라이브러리 d3dx12residency.h의 세 가지 주요 개념: ManagedObject·ResidencySet·ResidencyManager
-> - residency 관리의 단위는 개별 버퍼가 아니라 **32MiB 풀 블록 전체**라는 것, 그리고 그 전파 경로(GetResidencyHandles)
+> - residency 관리의 단위는 개별 버퍼가 아니라 **풀 블록 전체**(기본 버퍼 풀 32MiB·업로드 힙 4MiB)라는 것, 그리고 그 전파 경로(GetResidencyHandles)
 > - SBT 레코드 한 줄의 구성: 셰이더 식별자 32바이트 + 시스템 파라미터 32바이트(Config·IB 오프셋·인덱스/주소 union) + 루트 CBV 주소들
 > - 바인딩 두 경로의 실제: bindless에서 레코드에 직접 기록되는 인덱스는 시스템 IB/VB뿐이고, 나머지 인덱스는 유니폼 버퍼의 내용물로 흘러간다는 것
 > - `ByteAddressBuffer HitGroupSystemIndexBuffer;` 한 줄이 컴파일러 rewriter에 의해 `ResourceDescriptorHeap[...]` 접근으로 재작성되는 단계
 > - Commit이 매번 새 GPU 버퍼를 만들어 SBT 전체를 카피 큐로 재업로드한다는 것, 그리고 persistent 레코드의 stale 구멍
-> - 실전 코드 루트: 바인딩 switch의 `SetResourceCollection`이 컬렉션 멤버 전부를 신고에 끌어들이는 코드부터, evict된 블록이 신고가 살아 있는 다음 Submit에서 MakeResident로 되살아나는 왕복 전 과정
-> - TLAS가 BLAS·버텍스/인덱스 버퍼의 residency를 대신 신고하는 증분 추적(5.8 신규 최적화)과 refcount 캐시
+> - 실전 코드 루트: 바인딩 switch의 `SetResourceCollection`이 컬렉션 멤버 전부를 등록에 끌어들이는 코드부터, evict된 블록이 등록이 살아 있는 다음 Submit에서 MakeResident로 되살아나는 왕복 전 과정
+> - TLAS가 BLAS·버텍스/인덱스 버퍼의 residency를 대신 등록하는 증분 추적(5.8 신규 최적화)과 refcount 캐시
 > - 예산 70%부터 시작되는 트리밍, 60초에서 1초로 줄어드는 유예 시간, aged/budget 두 갈래의 eviction
 > - 페이징 완료를 GPU 펜스로 기다리게 하는 구조(CPU는 안 막힌다), 그리고 복구 불능 "catastrophic failure"의 TODO 주석
 > - GPU 페이지 폴트가 DRED에 남기는 두 가지 시그니처(활성 리소스 vs 최근 해제)와 언리얼의 3중 역추적 로그
@@ -83,11 +83,19 @@ index: 33
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-언리얼엔진의 D3D12 RHI(Rendering Hardware Interface, 언리얼이 D3D12·Vulkan 같은 그래픽 API를 감싸는 공통 계층)는 이 책임을 두 개의 흐름으로 나눠서 진다. 하나는 <strong>데이터 흐름</strong>이다. 리소스의 GPU 가상 주소를 어딘가에 기록하는 흐름인데, 레이트레이싱에서는 그 "어딘가"가 SBT(Shader Binding Table, 셰이더와 리소스 바인딩을 담는 GPU 버퍼, 05장에서 자세히 본다)의 레코드다. 주소는 한 번 기록되면 레코드가 살아 있는 한 유효하다고 가정된다. 다른 하나는 <strong>선언 흐름</strong>이다. 그 주소가 가리키는 리소스를 "이번 Submit에서 씁니다"라고 residency 매니저에 매 Submit(완성된 커맨드리스트를 GPU 큐에 넘겨 실행시키는 것, 10장)마다 신고하는 흐름이다. 신고된 리소스는 GPU가 실행하기 전에 VRAM에 올라오고, 신고에서 빠진 리소스는 언제든 VRAM 밖으로 밀려날 수 있다.
+그 결정이 실제로 하는 일은 두 가지다. VRAM이 모자라면 당장 안 쓰는 리소스를 시스템 RAM으로 <strong>내리고</strong>(evict), 다시 써야 할 때 VRAM으로 <strong>올린다</strong>(restore, 01장). 문제는 GPU가 실행 도중에 "이거 없네, 잠깐 올려 주세요"를 할 수 없다는 점이다. 내려가 있는 주소를 읽으면 기다리는 게 아니라 <strong>그 자리에서 죽는다</strong>. 그래서 커맨드리스트를 GPU에 넘기기 <em>전에</em>, 그 안에서 건드릴 리소스가 빠짐없이 VRAM에 올라와 있어야 한다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+그런데 무엇을 건드릴지는 앱만 안다. 그래서 앱이 GPU에 일을 넘길 때마다 <strong>"이번에 쓸 리소스는 이것들입니다"라는 목록을 함께 제출</strong>하는 방식이 된다. 이 글에서 <strong>등록</strong>이라고 부르는 것이 이 목록에 이름을 올리는 일이다. 등록된 리소스는 실행 전에 VRAM으로 올라오고 실행이 끝날 때까지 내려가지 않는다. 반대로 목록에서 빠지면 "아무도 안 쓰는 것"으로 취급되어 언제든 내려갈 수 있다. 그리고 이 등록은 <strong>매번 반복해야 한다</strong>. VRAM 사정이 매 순간 달라지기도 하고, 등록 자체가 "이 리소스는 방금 쓰였다"는 표시라서 등록이 끊긴 것부터 내려가기 때문이다. 이 글에 "등록"이 계속 나오는 이유가 이것이다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+언리얼엔진의 D3D12 RHI(Rendering Hardware Interface, 언리얼이 D3D12·Vulkan 같은 그래픽 API를 감싸는 공통 계층)는 이 책임을 두 개의 흐름으로 나눠서 진다. 하나는 <strong>데이터 흐름</strong>이다. 리소스의 GPU 가상 주소를 어딘가에 기록하는 흐름인데, 레이트레이싱에서는 그 "어딘가"가 SBT(Shader Binding Table, 셰이더와 리소스 바인딩을 담는 GPU 버퍼, 05장에서 자세히 본다)의 <strong>레코드</strong><span class="fn-note"><input type="checkbox" id="fn-record" class="fn-toggle"><label for="fn-record" class="fn-ref">1</label><span class="fn-body"><strong>레코드(shader record):</strong> DXR 스펙의 공식 용어다. 스펙은 표 자체를 <em>shader table</em>, 그 표를 이루는 항목 하나를 <em>shader record</em>라 부른다. 레코드 하나에는 실행할 셰이더를 가리키는 32바이트 식별자와, 그 셰이더만 쓰는 리소스 바인딩(로컬 루트 시그니처 파라미터)이 함께 들어간다. hit group만 레코드를 갖는 게 아니라 raygen·miss·callable도 각각 자기 구역의 레코드를 갖는다. 구조는 05장에서 자세히 본다.</span></span>다. 주소는 한 번 기록되면 레코드가 살아 있는 한 유효하다고 가정된다. 다른 하나는 <strong>선언 흐름</strong>이다. 그 주소가 가리키는 리소스를 "이번 Submit에서 씁니다"라고 residency 매니저에 매 Submit(완성된 커맨드리스트를 GPU 큐에 넘겨 실행시키는 것, 10장)마다 등록하는 흐름이다. 등록된 리소스는 GPU가 실행하기 전에 VRAM에 올라오고, 등록에서 빠진 리소스는 언제든 VRAM 밖으로 밀려날 수 있다.
 </p>
 
 <div class="scene-fig">
-<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="버텍스 버퍼의 주소가 SBT 레코드에 한 번 기록되는 데이터 흐름과, 매 Submit마다 residency set에 신고되는 선언 흐름이 GPU에서 만나는 다이어그램">
+<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="버텍스 버퍼의 주소가 SBT 레코드에 한 번 기록되는 데이터 흐름과, 매 Submit마다 residency set에 등록되는 선언 흐름이 GPU에서 만나는 다이어그램">
 <defs>
 <marker id="ov-ab" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#3b82c4"/></marker>
 <marker id="ov-at" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#2a9d8f"/></marker>
@@ -107,7 +115,7 @@ index: 33
 <text x="276" y="79" font-family="Consolas, monospace" font-size="10.5" fill="#6b7484">레코드가 살아있는 한 유효하다고 가정</text>
 <path d="M 170 190 C 220 190 210 236 262 240" fill="none" stroke="#2a9d8f" stroke-width="2.2" marker-end="url(#ov-at)"/>
 <text x="196" y="262" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700" fill="#2a9d8f">② 선언 흐름</text>
-<text x="196" y="278" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#6b7484">매 Submit마다 신고</text>
+<text x="196" y="278" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#6b7484">매 Submit마다 등록</text>
 <rect x="264" y="220" width="300" height="40" rx="6" fill="#e9f6f4" stroke="#2a9d8f" stroke-width="1.5"/>
 <text x="276" y="238" font-family="Consolas, monospace" font-size="11" fill="#2b2f3d">ResidencySet.Insert(handle) → MakeResident</text>
 <text x="276" y="253" font-family="Consolas, monospace" font-size="10.5" fill="#6b7484">"이번 커맨드리스트에서 이 리소스를 씁니다"</text>
@@ -121,15 +129,15 @@ index: 33
 <text x="430" y="168" font-family="Segoe UI, sans-serif" font-size="11.5" font-weight="700" fill="#d6304a">②가 빠지면: evict된 주소를 읽음</text>
 <text x="430" y="184" font-family="Consolas, monospace" font-size="11" fill="#d6304a">→ GPU PAGE FAULT</text>
 </svg>
-<div class="scene-cap">이 글이 다루는 전체 그림. 주소는 SBT 레코드에 한 번만 써 두고(①), 그 리소스를 쓴다는 신고는 매 Submit마다 반복한다(②). 크래시는 ①은 살아 있는데 ②가 빠진 리소스에서 난다.</div>
+<div class="scene-cap">이 글이 다루는 전체 그림. 주소는 SBT 레코드에 한 번만 써 두고(①), 그 리소스를 쓴다는 등록은 매 Submit마다 반복한다(②). 크래시는 ①은 살아 있는데 ②가 빠진 리소스에서 난다.</div>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-문제는 이 두 흐름이 <strong>완전히 다른 코드 경로</strong>라는 데 있다. 주소를 기록하는 코드가 신고를 보장해 주지 않는다. 레코드에는 주소가 멀쩡히 남아 있는데 어느 프레임부터 신고 목록에서 빠진 리소스가 생기면, VRAM이 넉넉할 때는 아무 일도 없다. evict될 이유가 없으니까. 그런데 VRAM이 예산의 70%를 넘어 압박이 시작되면(10장) 그 리소스는 "아무도 안 쓴다"고 판정되어 VRAM 밖으로 밀려나고, GPU가 레코드의 주소를 읽는 순간 주소 변환이 실패한다. GPU 페이지 폴트, 그리고 <code>DXGI_ERROR_DEVICE_REMOVED</code>다. "잘 돌던 씬이 VRAM 빠듯한 날에만 죽는다"는 미스터리의 정체가 대개 이것이다.
+문제는 이 두 흐름이 <strong>완전히 다른 코드 경로</strong>라는 데 있다. 주소를 기록하는 코드가 등록을 보장해 주지 않는다. 레코드에는 주소가 멀쩡히 남아 있는데 어느 프레임부터 등록 목록에서 빠진 리소스가 생기면, VRAM이 넉넉할 때는 아무 일도 없다. evict될 이유가 없으니까. 그런데 VRAM이 예산의 70%를 넘어 압박이 시작되면(10장) 그 리소스는 "아무도 안 쓴다"고 판정되어 VRAM 밖으로 밀려나고, GPU가 레코드의 주소를 읽는 순간 주소 변환이 실패한다. GPU 페이지 폴트, 그리고 <code>DXGI_ERROR_DEVICE_REMOVED</code>다. "잘 돌던 씬이 VRAM 빠듯한 날에만 죽는다"는 미스터리의 정체가 대개 이것이다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-이 글은 그 사이의 전 구간을 언리얼엔진 5.8 소스로 따라간다. 순서는 이렇다. GPU 메모리 가상화라는 배경(01장), residency 라이브러리의 구조(02장)를 깔고 나면, 이 모든 코드가 엔진의 어느 스레드에서 어떤 입력 때문에 불리는지를 메시 하나로 따라가는 전체 흐름(03장)이 나온다. 그다음부터는 이 흐름의 단계를 하나씩 확대해서 본다. residency 관리의 단위가 되는 풀 블록(04장), SBT 레코드의 구조(05장)와 주소가 기록되는 두 바인딩 경로(06장), 레코드를 GPU 버퍼로 올려 마무리하는 Commit(07장), 간접 참조를 대신 신고하는 씬 추적(08장), 디스패치 시점의 신고(09장), Submit 시점의 페이징(10장), 그리고 두 흐름이 어긋났을 때의 페이지 폴트와 진단(11장).
+이 글은 그 사이의 전 구간을 언리얼엔진 5.8 소스로 따라간다. 순서는 이렇다. GPU 메모리 가상화라는 배경(01장), residency 라이브러리의 구조(02장)를 깔고 나면, 이 모든 코드가 엔진의 어느 스레드에서 어떤 입력 때문에 불리는지를 메시 하나로 따라가는 전체 흐름(03장)이 나온다. 그다음부터는 이 흐름의 단계를 하나씩 확대해서 본다. residency 관리의 단위가 되는 풀 블록(04장), SBT 레코드의 구조(05장)와 주소가 기록되는 두 바인딩 경로(06장), 레코드를 GPU 버퍼로 올려 마무리하는 Commit(07장), 간접 참조를 대신 등록하는 씬 추적(08장), 디스패치 시점의 등록(09장), Submit 시점의 페이징(10장), 그리고 두 흐름이 어긋났을 때의 페이지 폴트와 진단(11장).
 </p>
 
 <div class="callout callout-info">
@@ -225,7 +233,7 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 };</div>
 
 <p style="color:var(--text2);line-height:1.85;">
-주목할 것은 "마지막 사용"이 두 필드로 갈라져 있다는 점이다. <code>LastGPUSyncPoint</code>는 Submit 세대 번호로 "GPU가 이걸 아직 쓰고 있을 수 있는가"를 판정하고(쓰는 중이면 evict 금지), <code>LastUsedTimestamp</code>는 벽시계 시각으로 "얼마나 오래 안 쓰였는가"라는 유예 시간 판정에 쓰인다(10장). 언리얼 쪽에서는 <code>FD3D12ResidencyHandle</code>이 이 클래스를 그대로 상속한 얇은 래퍼다(<code>D3D12Residency.h:46</code>).
+주목할 것은 "마지막 사용"이 두 필드로 갈라져 있다는 점이다. <code>LastGPUSyncPoint</code>는 Submit 세대 번호로 "GPU가 이걸 아직 쓰고 있을 수 있는가"를 판정하고(쓰는 중이면 evict 금지), <code>LastUsedTimestamp</code>는 <code>QueryPerformanceCounter</code>로 찍은 시각이라 "마지막으로 쓰인 뒤 실제로 몇 초가 흘렀는가"를 재고, 이것이 유예 시간 판정에 쓰인다(10장). 언리얼 쪽에서는 <code>FD3D12ResidencyHandle</code>이 이 클래스를 그대로 상속한 얇은 래퍼다(<code>D3D12Residency.h:46</code>).
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -241,15 +249,19 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
         ppSet[CurrentSetSize++] = pObject;
         <span class="kw">return true</span>;
     }
-    <span class="kw">return false</span>;  <span class="cm">// 이미 신고됨 → O(1)로 스킵</span>
+    <span class="kw">return false</span>;  <span class="cm">// 이미 등록됨 → O(1)로 스킵</span>
 }</div>
 
 <p style="color:var(--text2);line-height:1.85;">
-같은 리소스를 한 커맨드리스트에서 수백 번 써도 신고는 한 번만 남는다. 다만 오브젝트마다 1KB짜리 bool 배열이 붙는, 메모리를 더 쓰는 대신 조회 시간을 아끼는 구조다("이 크기는 앱에 맞게 튜닝하라"는 주석이 달려 있다). <code>Open()</code>이 1,024개 슬롯 중 빈 것을 예약하고 <code>Close()</code>가 마킹을 지우고 반납하므로, 동시에 열려 있을 수 있는 set은 최대 1,024개다.
+한 프레임을 그리는 동안 같은 버텍스 버퍼가 드로우콜 수백 개에 바인딩되는 일은 흔하다. 그때마다 등록이 들어오지만 <strong>실제로 목록에 담기는 것은 맨 처음 한 번뿐</strong>이고, 나머지는 전부 걸러진다. residency 매니저 입장에서 필요한 정보는 "이 커맨드리스트가 이 리소스를 쓰는가" 하나뿐이라, 몇 번 쓰는지는 셀 이유가 없기 때문이다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-셋째, <strong>ResidencyManager</strong>. 디바이스(GPU 노드)당 하나. 예산을 <code>IDXGIAdapter3::QueryVideoMemoryInfo</code>로 <strong>매 Submit마다 실시간 조회</strong>하고, RESIDENT/EVICTED 두 개의 LRU 리스트를 유지하며, Submit을 가로채 페이징을 끼워 넣는다(10장). Epic이 더한 <code>LocalMemoryBudgetLimit</code>은 DXGI 예산에 상한을 하나 더 씌우는 값인데, 언리얼이 매 프레임 여기에 값을 넣어 준다. 앱이 포커스를 잃으면 예산을 0으로 만들어 VRAM을 통째로 반납하는 <code>D3D12.EvictAllResidentResourcesInBackground</code>, 예산을 강제로 128MB 따위로 줄여 eviction을 폭주시키는 스트레스 테스트용 <code>D3D12.ResidencyDebugBudgetMB</code>(5.8 신규) 모두 이 값을 통해 동작한다.
+자료구조가 이렇게 생긴 이유도 여기 있다. <code>Insert</code>는 바인딩이 일어날 때마다 불리는 <strong>가장 바쁜 경로</strong>라 한 번 호출이 최대한 싸야 한다. 그래서 중복 판정에 해시 셋이 아니라 <strong>오브젝트가 직접 들고 있는 bool 배열</strong>을 쓴다. <code>CommandListsUsedOn[CommandListIndex]</code>는 해시 계산도 충돌 처리도 없이 <strong>배열 한 칸을 읽는 것으로 끝</strong>이고, 목록 자체는 포인터 평면 배열(<code>ppSet</code>)이라 담는 것도 <code>ppSet[CurrentSetSize++]</code> 한 줄이다. Submit이 나중에 이 목록을 처음부터 끝까지 훑을 때도 평면 배열이 캐시에 가장 유리하다. 대가는 메모리다. 오브젝트마다 1,024칸짜리 bool 배열이 붙어 1KB씩 더 먹는다. 시간을 사고 메모리를 파는 흔한 교환이고, 소스에도 "이 크기는 앱에 맞게 튜닝하라"는 주석이 달려 있다. 그 1,024가 곧 동시에 열려 있을 수 있는 set의 상한이기도 하다. <code>Open()</code>이 1,024개 슬롯 중 빈 것을 하나 예약하고 <code>Close()</code>가 마킹을 지우며 반납한다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+셋째, <strong>ResidencyManager</strong>. 디바이스(GPU 노드)당 하나. 예산을 <code>IDXGIAdapter3::QueryVideoMemoryInfo</code>로 <strong>매 Submit마다 실시간 조회</strong>하고, RESIDENT/EVICTED 두 개의 LRU<span class="fn-note"><input type="checkbox" id="fn-lru" class="fn-toggle"><label for="fn-lru" class="fn-ref">2</label><span class="fn-body"><strong>LRU(least recently used):</strong> "가장 오래 안 쓰인 것부터 버린다"는 교체 정책이자, 그 순서를 유지하는 리스트를 가리킨다. 리소스를 쓸 때마다 그 항목을 리스트 머리로 옮기면 꼬리에는 자연히 오래 안 쓰인 것이 모이므로, 메모리가 모자랄 때 꼬리부터 걷어내면 된다. d3dx12residency는 RESIDENT와 EVICTED 두 개를 따로 유지해서 "내릴 후보"와 "되살릴 대상"을 각각 바로 집는다. 링크드리스트 노드를 따로 할당하지 않고 <code>ManagedObject</code> 안에 <code>LIST_ENTRY</code>를 박아 두는 침입형(intrusive) 방식이라, 리스트를 옮기는 데 추가 할당이 들지 않는다.</span></span> 리스트를 유지하며, Submit을 가로채 페이징을 끼워 넣는다(10장). Epic이 더한 <code>LocalMemoryBudgetLimit</code>은 DXGI 예산에 상한을 하나 더 씌우는 값인데, 언리얼이 매 프레임 여기에 값을 넣어 준다. 앱이 포커스를 잃으면 예산을 0으로 만들어 VRAM을 통째로 반납하는 <code>D3D12.EvictAllResidentResourcesInBackground</code>, 예산을 강제로 128MB 따위로 줄여 eviction을 폭주시키는 스트레스 테스트용 <code>D3D12.ResidencyDebugBudgetMB</code>(5.8 신규) 모두 이 값을 통해 동작한다.
 </p>
 
 <div class="scene-fig">
@@ -282,8 +294,8 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 <rect x="436" y="252" width="16" height="16" fill="#eef2f8" stroke="#c9d2e0"/><rect x="456" y="252" width="16" height="16" fill="#2a9d8f"/><rect x="476" y="252" width="16" height="16" fill="#eef2f8" stroke="#c9d2e0"/><rect x="496" y="252" width="16" height="16" fill="#eef2f8" stroke="#c9d2e0"/>
 <rect x="436" y="272" width="16" height="16" fill="#2a9d8f"/><rect x="456" y="272" width="16" height="16" fill="#eef2f8" stroke="#c9d2e0"/><rect x="476" y="272" width="16" height="16" fill="#2a9d8f"/><rect x="496" y="272" width="16" height="16" fill="#eef2f8" stroke="#c9d2e0"/>
 </g>
-<text x="530" y="266" font-family="Consolas, monospace" font-size="10.5" fill="#6b7484">obj A: cmdlist 1에 신고됨</text>
-<text x="530" y="286" font-family="Consolas, monospace" font-size="10.5" fill="#6b7484">obj B: cmdlist 0, 2에 신고됨</text>
+<text x="530" y="266" font-family="Consolas, monospace" font-size="10.5" fill="#6b7484">obj A: cmdlist 1에 등록됨</text>
+<text x="530" y="286" font-family="Consolas, monospace" font-size="10.5" fill="#6b7484">obj B: cmdlist 0, 2에 등록됨</text>
 </g>
 <path d="M 354 84 L 418 84" fill="none" stroke="#6b7484" stroke-width="1.6" marker-end="url(#lb-a)"/>
 <text x="360" y="76" font-family="Segoe UI, sans-serif" font-size="10.5" fill="#6b7484">LRU로 연결</text>
@@ -294,7 +306,7 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-스레드 모델도 짚어 두자. <code>ID3D12Device3</code>(Windows 10 1709 이상)가 지원하는 <code>EnqueueMakeResident</code>가 있으면 라이브러리는 전용 스레드를 만들지 않는다. 페이징 판단은 Submit 스레드에서 인라인으로 돌고, 실제 페이징의 완료 대기는 GPU 펜스<span class="fn-note"><input type="checkbox" id="fn-fence" class="fn-toggle"><label for="fn-fence" class="fn-ref">1</label><span class="fn-body"><strong>펜스(fence):</strong> GPU 타임라인에 찍는 단조 증가 카운터. "여기까지 실행이 끝났다"를 CPU나 다른 큐가 확인하거나 기다릴 수 있게 하는 D3D12의 기본 동기화 장치다. 이 글에서는 페이징 완료(10장), evict 안전성 판정(10장), 크래시 감지(11장)에 두루 등장한다.</span></span>로 넘긴다(10장). Device3가 없는 구형 OS에서만 자체 워커 스레드를 만들어 블로킹 <code>MakeResident</code>를 대신 부른다. 소프트웨어 큐 깊이는 <code>RESIDENCY_PIPELINE_DEPTH = 6</code>(<code>D3D12RHIDefinitions.h:15</code>), 즉 페이징 처리가 Submit보다 6배치 이상 뒤처지면 Submit 쪽이 기다린다.
+스레드 모델도 짚어 두자. <code>ID3D12Device3</code>(Windows 10 1709 이상)가 지원하는 <code>EnqueueMakeResident</code>가 있으면 라이브러리는 전용 스레드를 만들지 않는다. 페이징 판단은 Submit 스레드에서 인라인으로 돌고, 실제 페이징의 완료 대기는 GPU 펜스<span class="fn-note"><input type="checkbox" id="fn-fence" class="fn-toggle"><label for="fn-fence" class="fn-ref">3</label><span class="fn-body"><strong>펜스(fence):</strong> GPU 타임라인에 찍는 단조 증가 카운터. "여기까지 실행이 끝났다"를 CPU나 다른 큐가 확인하거나 기다릴 수 있게 하는 D3D12의 기본 동기화 장치다. 이 글에서는 페이징 완료(10장), evict 안전성 판정(10장), 크래시 감지(11장)에 두루 등장한다.</span></span>로 넘긴다(10장). Device3가 없는 구형 OS에서만 자체 워커 스레드를 만들어 블로킹 <code>MakeResident</code>를 대신 부른다. 소프트웨어 큐 깊이는 <code>RESIDENCY_PIPELINE_DEPTH = 6</code>(<code>D3D12RHIDefinitions.h:15</code>), 즉 페이징 처리가 Submit보다 6배치 이상 뒤처지면 Submit 쪽이 기다린다.
 </p>
 </div>
 
@@ -310,11 +322,11 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-먼저 등장하는 스레드들이다. 언리얼에서 화면에 뭔가 그려지기까지는 릴레이가 있다. <strong>게임 스레드</strong>가 Tick과 게임플레이 로직을 돌리고(SpawnActor, 레벨 스트리밍이 여기서 시작된다), <strong>렌더 스레드</strong>가 "이번 프레임을 어떤 패스로 어떤 순서로 그릴지" 계획을 세우고, <strong>RHI 스레드</strong>가 그 계획을 실제 D3D12 커맨드리스트로 번역하고, <strong>RHI Submit 스레드</strong>가 완성된 커맨드리스트를 GPU 큐에 넘긴다. 이 글의 코드는 대부분 이 릴레이의 RHI 스레드(기록)와 Submit 스레드(페이징) 구간에 산다.
+먼저 등장하는 스레드들이다. 언리얼에서 화면에 뭔가 그려지기까지는 릴레이가 있다. <strong>게임 스레드</strong>가 Tick과 게임플레이 로직을 돌리고(SpawnActor, 레벨 스트리밍이 여기서 시작된다), <strong>렌더 스레드</strong>가 "이번 프레임을 어떤 패스로 어떤 순서로 그릴지" 계획을 세우고, <strong>RHI 스레드</strong>가 그 계획을 실제 D3D12 커맨드리스트로 <strong>옮겨 적고</strong><span class="fn-note"><input type="checkbox" id="fn-translate" class="fn-toggle"><label for="fn-translate" class="fn-ref">4</label><span class="fn-body"><strong>옮겨 적기(translate):</strong> 렌더 스레드는 그래픽 API를 직접 부르지 않는다. 플랫폼과 무관한 <code>FRHICommandList</code>에 "무엇을 하라"는 명령을 <em>기록만</em> 해 둔다. 그 기록을 나중에 플랫폼 컨텍스트에 되짚어 실행해서 진짜 <code>ID3D12GraphicsCommandList</code>로 만드는 단계를 엔진이 translate라 부른다(<code>RHICommandList.h</code>의 <code>FTranslateState</code>, 주석 그대로 "multiple RHICmdLists replayed into it"). 굳이 두 단계로 나누는 이유는 둘이다. 첫째, 렌더러를 RHI 한 벌로만 짜두면 플랫폼마다 각자의 RHI가 자기 API로 옮겨 적으면 된다. 둘째, 네이티브 커맨드리스트 기록은 비싼 작업인데 이 단계는 <code>ETranslatePriority</code>로 여러 태스크 스레드에 흩뿌릴 수 있어(<code>Disabled</code>면 RHI 스레드가 혼자 순차 처리) 렌더 스레드를 붙잡지 않는다. 이 글에서 중요한 건 <strong>옮겨 적는 동안 D3D12 RHI가 그 커맨드리스트가 건드리는 리소스를 ResidencySet에 모아 둔다</strong>는 점이다(09장). Submit이 검사할 목록이 이때 완성된다.</span></span>, <strong>RHI Submit 스레드</strong>가 완성된 커맨드리스트를 GPU 큐에 넘긴다. 이 글의 코드는 대부분 이 릴레이의 RHI 스레드(기록)와 Submit 스레드(페이징) 구간에서 돈다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-이제 구체적인 입력 하나를 넣고 끝까지 따라가 보자. <strong>레벨 스트리밍으로 스태틱 메시 하나가 들어온다.</strong> 이 메시의 버텍스 버퍼가 태어나서, 주소가 SBT에 기록되고, 매 프레임 신고되고, VRAM에서 밀려났다가 되살아나고, ray에 맞아 읽히기까지의 전체 과정이다. 중간에 나오는 BLAS/TLAS는 ray와 삼각형의 교차 검사를 빠르게 하기 위한 가속 구조로, BLAS는 메시 하나 단위, TLAS는 그 BLAS들을 씬에 배치한 전체 단위다(08장).
+이제 구체적인 입력 하나를 넣고 끝까지 따라가 보자. <strong>레벨 스트리밍으로 스태틱 메시 하나가 들어온다.</strong> 이 메시의 버텍스 버퍼가 태어나서, 주소가 SBT에 기록되고, 매 프레임 등록되고, VRAM에서 밀려났다가 되살아나고, ray에 맞아 읽히기까지의 전체 과정이다. 중간에 나오는 BLAS/TLAS는 ray와 삼각형의 교차 검사를 빠르게 하기 위한 가속 구조로, BLAS는 메시 하나 단위, TLAS는 그 BLAS들을 씬에 배치한 전체 단위다(08장).
 </p>
 
 <div class="scene-fig">
@@ -339,7 +351,7 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 <rect x="306" y="122" width="128" height="32" rx="6" fill="#f3ecfa" stroke="#8b5cf6"/><text x="314" y="136" font-family="Consolas, monospace" font-size="9.5" fill="#443066">③ BLAS/TLAS 빌드</text><text x="314" y="149" font-family="Consolas, monospace" font-size="9" fill="#6b7484">씬 추적 갱신 [08장]</text>
 <rect x="444" y="122" width="130" height="32" rx="6" fill="#eaf1fb" stroke="#3b82c4"/><text x="452" y="136" font-family="Consolas, monospace" font-size="9.5" fill="#1e3a5f">④ 바인딩 수집 [06장]</text><text x="452" y="149" font-family="Consolas, monospace" font-size="9" fill="#6b7484">dirty 레코드만</text>
 <rect x="444" y="192" width="130" height="32" rx="6" fill="#eaf1fb" stroke="#3b82c4"/><text x="452" y="206" font-family="Consolas, monospace" font-size="9.5" fill="#1e3a5f">⑤ 레코드 기록·Commit</text><text x="452" y="219" font-family="Consolas, monospace" font-size="9" fill="#6b7484">[05·06·07장]</text>
-<rect x="584" y="192" width="130" height="32" rx="6" fill="#e9f6f4" stroke="#2a9d8f"/><text x="592" y="206" font-family="Consolas, monospace" font-size="9.5" fill="#1e6e64">⑥ 디스패치 신고 [09장]</text><text x="592" y="219" font-family="Consolas, monospace" font-size="9" fill="#4b8a82">씬+SBT+글로벌+RayGen</text>
+<rect x="584" y="192" width="130" height="32" rx="6" fill="#e9f6f4" stroke="#2a9d8f"/><text x="592" y="206" font-family="Consolas, monospace" font-size="9.5" fill="#1e6e64">⑥ 디스패치 등록 [09장]</text><text x="592" y="219" font-family="Consolas, monospace" font-size="9" fill="#4b8a82">씬+SBT+글로벌+RayGen</text>
 <rect x="584" y="262" width="130" height="32" rx="6" fill="#e9f6f4" stroke="#2a9d8f"/><text x="592" y="276" font-family="Consolas, monospace" font-size="9.5" fill="#1e6e64">⑦ 페이징 [10장]</text><text x="592" y="289" font-family="Consolas, monospace" font-size="9" fill="#4b8a82">evict·restore·GPU 게이트</text>
 <rect x="584" y="332" width="130" height="32" rx="6" fill="#f3f6fb" stroke="#2b2f3d"/><text x="592" y="346" font-family="Consolas, monospace" font-size="9.5" fill="#2b2f3d">⑧ DispatchRays [11장]</text><text x="592" y="359" font-family="Consolas, monospace" font-size="9" fill="#8b93a3">레코드의 주소를 읽음</text>
 </g>
@@ -351,7 +363,7 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 <path d="M 649 224 L 649 260" fill="none" stroke="#6b7484" stroke-width="1.4" marker-end="url(#fm-a)"/>
 <path d="M 649 294 L 649 330" fill="none" stroke="#6b7484" stroke-width="1.4" marker-end="url(#fm-a)"/>
 <path d="M 714 278 C 744 278 744 240 714 226" fill="none" stroke="#d6304a" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#fm-r)"/>
-<text x="306" y="396" font-family="Segoe UI, sans-serif" font-size="11" fill="#a3243a">빨간 화살표: ⑦에서 예산 압박으로 evict된 블록도, 다음 프레임 ⑥의 신고가 살아 있으면</text>
+<text x="306" y="396" font-family="Segoe UI, sans-serif" font-size="11" fill="#a3243a">빨간 화살표: ⑦에서 예산 압박으로 evict된 블록도, 다음 프레임 ⑥의 등록이 살아 있으면</text>
 <text x="306" y="412" font-family="Segoe UI, sans-serif" font-size="11" fill="#a3243a">⑦의 ProcessPagingWork가 EVICTED를 발견하고 MakeResident로 되살린다 (restore)</text>
 <text x="108" y="396" font-family="Segoe UI, sans-serif" font-size="11" fill="#6b7484">②는 로딩 이벤트라 프레임</text>
 <text x="108" y="412" font-family="Segoe UI, sans-serif" font-size="11" fill="#6b7484">루프 밖에서 일어난다</text>
@@ -371,14 +383,14 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 <tr><td>③ 가속 구조</td><td>씬 렌더링 초입</td><td>렌더→RHI</td><td>BLAS/TLAS 빌드 → <code>PrepareAccelerationStructureBuild</code> → <code>UpdateResidencyTracking</code>(refcount 캐시 증분 갱신)</td><td>08</td></tr>
 <tr><td>④ 바인딩 수집</td><td>dirty 레코드 발생</td><td>렌더(태스크)</td><td><code>BindRayTracingMaterialPipeline</code> → <code>MergeAndSetRayTracingBindings</code></td><td>06</td></tr>
 <tr><td>⑤ 레코드 기록</td><td>④의 커맨드 실행</td><td>RHI</td><td><code>RHISetBindingsOnShaderBindingTable</code> → <code>SetRayTracingHitGroup</code> → <code>SetRayTracingShaderResources</code>(주소를 레코드에 기록 + 참조 수집) → <code>CommitShaderBindingTable</code>(GPU 업로드)</td><td>05·06·07</td></tr>
-<tr><td>⑥ 디스패치 신고</td><td>RT 패스 실행(섀도·Lumen·리플렉션)</td><td>RHI</td><td><code>RHIRayTraceDispatch</code> → <code>DispatchRays</code>: 글로벌+씬+SBT+RayGen 네 갈래 <code>UpdateResidency</code> → ResidencySet</td><td>09</td></tr>
+<tr><td>⑥ 디스패치 등록</td><td>RT 패스 실행(섀도·Lumen·리플렉션)</td><td>RHI</td><td><code>RHIRayTraceDispatch</code> → <code>DispatchRays</code>: 글로벌+씬+SBT+RayGen 네 갈래 <code>UpdateResidency</code> → ResidencySet</td><td>09</td></tr>
 <tr><td>⑦ 페이징</td><td>커맨드리스트 Submit</td><td>Submit</td><td><code>FD3D12Queue::ExecuteCommandLists</code> → <code>ResidencyManager::ExecuteCommandLists</code> → <code>ProcessPagingWork</code>: EVICTED면 MakeResident(restore), 예산 70% 초과면 trim(evict)</td><td>10</td></tr>
 <tr><td>⑧ GPU 실행</td><td>페이징 펜스 시그널</td><td>GPU</td><td>큐가 펜스 Wait 통과 → <code>DispatchRays</code> 실행 → 레코드의 VA/인덱스로 버퍼 읽기</td><td>11</td></tr>
 </table>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-이 여덟 단계 안에서 데이터 흐름과 선언 흐름이 각각 어디를 지나는지 표시해 두자. <strong>데이터 흐름(주소 기록)은 ⑤ 한 곳</strong>이다. ②에서 태어난 버퍼의 GPU 주소가 ⑤에서 SBT 레코드에 기록되고, 그 뒤로는 리소스가 이사(rename)하지 않는 한 다시 쓰이지 않는다. <strong>선언 흐름(residency 신고)은 ③⑥⑦에 걸쳐</strong> 있다. ③이 "무엇을 신고해야 하는지" 목록을 캐시해 두면, ⑥이 매 디스패치마다 그 목록을 커맨드리스트의 ResidencySet에 붓고, ⑦이 그 신고를 근거로 VRAM 상태를 실제로 맞춘다. evict와 restore는 전부 ⑦ 안에서 일어나며, 렌더러나 게임 코드는 관여하지 않는다.
+이 여덟 단계 안에서 데이터 흐름과 선언 흐름이 각각 어디를 지나는지 표시해 두자. <strong>데이터 흐름(주소 기록)은 ⑤ 한 곳</strong>이다. ②에서 태어난 버퍼의 GPU 주소가 ⑤에서 SBT 레코드에 기록되고, 그 뒤로는 리소스가 이사(rename)하지 않는 한 다시 쓰이지 않는다. <strong>선언 흐름(residency 등록)은 ③⑥⑦에 걸쳐</strong> 있다. ③이 "무엇을 등록해야 하는지" 목록을 캐시해 두면, ⑥이 매 디스패치마다 그 목록을 커맨드리스트의 ResidencySet에 붓고, ⑦이 그 등록을 근거로 VRAM 상태를 실제로 맞춘다. evict와 restore는 전부 ⑦ 안에서 일어나며, 렌더러나 게임 코드는 관여하지 않는다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -390,7 +402,7 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 <span class="section-eyebrow">04 — 리소스와 풀</span>
 </div>
 
-# residency의 단위는 버퍼가 아니라 32MiB 블록이다
+# residency의 단위는 버퍼가 아니라 블록이다
 
 <div class="research-post">
 <div class="callout callout-info">
@@ -424,7 +436,7 @@ D3D11까지는 드라이버가 매 드로우콜의 바인딩을 다 보고 있�
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-residency 추적은 이 구조 위에 얹힌다. committed 리소스(풀에 못 들어가는 큰 것)는 자기가 직접 ManagedObject를 가진다(<code>FD3D12Resource::StartTrackingForResidency</code>, <code>D3D12Resources.cpp:625</code>). 반면 풀에서 잘라 쓴 리소스는 자기 핸들이 없고, <strong>블록(힙 또는 백킹 버퍼)의 핸들 하나를 공유</strong>한다. 전파 경로가 코드 한 곳에 모여 있다.
+residency 추적은 이 할당 구조를 그대로 따라간다. committed 리소스(풀에 못 들어가는 큰 것)는 자기가 직접 ManagedObject를 가진다(<code>FD3D12Resource::StartTrackingForResidency</code>, <code>D3D12Resources.cpp:625</code>). 반면 풀에서 잘라 쓴 리소스는 자기 핸들이 없고, <strong>블록(힙 또는 백킹 버퍼)의 핸들 하나를 공유</strong>한다. 전파 경로가 코드 한 곳에 모여 있다.
 </p>
 
 <div class="code-block"><div class="code-lang">C++ — D3D12Resources.h:400 (GetResidencyHandles)</div><span class="ty">TConstArrayView</span>&lt;<span class="ty">FD3D12ResidencyHandle</span>*&gt; <span class="ty">GetResidencyHandles</span>() <span class="kw">const</span>
@@ -451,7 +463,7 @@ residency 추적은 이 구조 위에 얹힌다. committed 리소스(풀에 못 
 <text x="52" y="223" font-family="Consolas, monospace" font-size="11" fill="#ffffff">ResidencyHandle — 블록에 1개</text>
 <g>
 <rect x="452" y="46" width="284" height="86" rx="8" fill="#e9f6f4" stroke="#2a9d8f" stroke-width="1.5"/>
-<text x="468" y="72" font-family="Segoe UI, sans-serif" font-size="12.5" font-weight="700" fill="#1e6e64">VB 메시A 하나만 신고해도</text>
+<text x="468" y="72" font-family="Segoe UI, sans-serif" font-size="12.5" font-weight="700" fill="#1e6e64">VB 메시A 하나만 등록해도</text>
 <text x="468" y="94" font-family="Segoe UI, sans-serif" font-size="12" fill="#2b2f3d">MakeResident 단위는 블록 전체.</text>
 <text x="468" y="114" font-family="Segoe UI, sans-serif" font-size="12" fill="#2b2f3d">32MiB가 통째로 VRAM에 올라온다</text>
 </g>
@@ -469,7 +481,7 @@ residency 추적은 이 구조 위에 얹힌다. committed 리소스(풀에 못 
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-이 구조가 가져오는 결과는 두 가지다. 좋은 쪽으로는, 신고 비용이 준다. 같은 블록의 버퍼 100개를 쓰면 신고할 핸들은 1개다. 나쁜 쪽으로는, 격리가 없어진다. 내 버퍼가 안 쓰이는 동안에도 같은 블록의 남의 버퍼가 쓰이면 블록은 살아 있고, 반대로 블록이 evict되는 순간 내 버퍼도 예고 없이 함께 내려간다. 추적에서 제외되는 것들도 있다. 백버퍼와 외부 공유 리소스는 커맨드리스트 밖(Present, 서드파티 코드)에서 참조되어 펜스 기반 판정이 틀어지므로 아예 추적하지 않는다(<code>D3D12Resources.cpp:142</code>). 레이트레이싱 가속 구조는 전용 32MiB 풀을 따로 쓰며, 풀 힙에 <code>D3D12_RESIDENCY_PRIORITY_HIGH</code>를 걸어 VidMm의 임의 페이지아웃 우선순위에서도 뒤로 밀리게 한다(<code>D3D12PoolAllocator.cpp:144</code>).
+이 구조가 가져오는 결과는 두 가지다. 좋은 쪽으로는, 등록 비용이 준다. 같은 블록의 버퍼 100개를 쓰면 등록할 핸들은 1개다. 나쁜 쪽으로는, 격리가 없어진다. 내 버퍼가 안 쓰이는 동안에도 같은 블록의 남의 버퍼가 쓰이면 블록은 살아 있고, 반대로 블록이 evict되는 순간 내 버퍼도 예고 없이 함께 내려간다. 추적에서 제외되는 것들도 있다. 백버퍼와 외부 공유 리소스는 커맨드리스트 밖(Present, 서드파티 코드)에서 참조되어 펜스 기반 판정이 틀어지므로 아예 추적하지 않는다(<code>D3D12Resources.cpp:142</code>). 레이트레이싱 가속 구조는 전용 32MiB 풀을 따로 쓰며, 풀 힙에 <code>D3D12_RESIDENCY_PRIORITY_HIGH</code>를 걸어 VidMm의 임의 페이지아웃 우선순위에서도 뒤로 밀리게 한다(<code>D3D12PoolAllocator.cpp:144</code>).
 </p>
 </div>
 
@@ -594,7 +606,7 @@ LocalRecordStride = RoundUpToNextMultiple(LocalRecordSizeUnaligned,
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-레코드에 값을 채우는 함수는 <code>SetRayTracingShaderResources</code>(<code>D3D12RayTracing.cpp:5572</code>) 하나인데, 템플릿 인자로 주입되는 <strong>바인더</strong>에 따라 동작이 둘로 갈린다. <code>FD3D12RayTracingGlobalResourceBinder</code>는 raygen 셰이더의 글로벌 바인딩용으로, <code>SetComputeRoot*</code>를 커맨드리스트에 직접 친다. <code>FD3D12RayTracingLocalResourceBinder</code>는 히트그룹/미스/콜러블용으로, <strong>같은 호출이 SBT 레코드 메모리에 기록</strong>된다. 기록 오프셋은 루트 시그니처가 정한다. 루트 시그니처의 바이트 레이아웃이 곧 레코드 레이아웃이다.
+레코드에 값을 채우는 함수는 <code>SetRayTracingShaderResources</code>(<code>D3D12RayTracing.cpp:5572</code>) 하나인데, 템플릿 인자로 주입되는 <strong>바인더</strong>에 따라 동작이 둘로 갈린다. <code>FD3D12RayTracingGlobalResourceBinder</code>는 raygen 셰이더의 글로벌 바인딩용으로, <code>SetComputeRoot*</code>를 커맨드리스트에 직접 친다. <code>FD3D12RayTracingLocalResourceBinder</code>는 히트그룹/미스/콜러블용으로, <strong>같은 호출이 SBT 레코드 메모리에 기록</strong>된다. 기록 오프셋은 루트 시그니처<span class="fn-note"><input type="checkbox" id="fn-rootsig" class="fn-toggle"><label for="fn-rootsig" class="fn-ref">5</label><span class="fn-body"><strong>루트 시그니처(root signature):</strong> 셰이더가 받을 파라미터의 목록과 순서를 미리 못박아 둔 선언이다. C 함수의 시그니처가 인자의 개수와 타입을 정하듯, 루트 시그니처는 "0번 자리에 상수 버퍼 주소, 1번 자리에 디스크립터 테이블…" 식으로 자리 배치를 정한다. 그래서 <strong>루트 시그니처의 바이트 레이아웃이 곧 SBT 레코드의 레이아웃</strong>이 된다. 레이 트레이싱에서는 두 종류로 나뉘는데, 글로벌 루트 시그니처는 디스패치 전체가 공유하고, 로컬 루트 시그니처는 레코드마다 따로 붙어서 히트그룹별로 다른 리소스를 받게 해 준다.</span></span>가 정한다. 루트 시그니처의 바이트 레이아웃이 곧 레코드 레이아웃이다.
 </p>
 
 <div class="code-block"><div class="code-lang">C++ — D3D12RayTracing.cpp:5473 (로컬 바인더: 레코드에 8바이트 기록)</div><span class="kw">void</span> <span class="ty">SetRootDescriptor</span>(<span class="kw">uint32</span> BaseSlotIndex, <span class="kw">uint32</span> DescriptorIndex, <span class="ty">D3D12_GPU_VIRTUAL_ADDRESS</span> Address)
@@ -605,7 +617,7 @@ LocalRecordStride = RoundUpToNextMultiple(LocalRecordSizeUnaligned,
 }</div>
 
 <div class="scene-fig">
-<svg viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="로컬 루트 시그니처의 파라미터 슬롯 목록이 SBT 레코드 안의 바이트 위치로 그대로 번역되는 그림. SetRootCBV로 슬롯 번호를 주면 루트 시그니처가 오프셋을 알려주고 레코드의 그 자리에 8바이트를 쓴다">
+<svg viewBox="0 0 760 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="로컬 루트 시그니처의 파라미터 슬롯 목록이 SBT 레코드 안의 바이트 위치로 그대로 변환되는 그림. SetRootCBV로 슬롯 번호를 주면 루트 시그니처가 오프셋을 알려주고 레코드의 그 자리에 8바이트를 쓴다">
 <defs><marker id="rs-a" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#6b7484"/></marker></defs>
 <text x="24" y="30" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700" fill="#2b2f3d">로컬 루트 시그니처 (파라미터 목록)</text>
 <rect x="24" y="40" width="300" height="180" rx="8" fill="#f3f6fb" stroke="#2b2f3d" stroke-width="1.5"/>
@@ -635,7 +647,7 @@ LocalRecordStride = RoundUpToNextMultiple(LocalRecordSizeUnaligned,
 <text x="24" y="252" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#4b5563">SetRootCBV(슬롯 1, 주소)를 부르면: 루트 시그니처가 "슬롯 1 = 오프셋 32"라고 알려주고 → 레코드의 32 + 32 = 64번째 바이트에 주소 8B를 쓴다.</text>
 <text x="24" y="270" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#6b7484">글로벌 바인더는 같은 호출을 커맨드리스트의 SetComputeRootCBV로 보낸다. 목적지만 다르고 슬롯 계산은 같다.</text>
 </svg>
-<div class="scene-cap">루트 시그니처가 곧 레코드의 배치도다. 바인딩 함수는 슬롯 번호로 말하고, 루트 시그니처가 그것을 바이트 오프셋으로 번역하며, 이 번역표가 있어서 bindless/비-bindless 분기도 결국 "어느 칸에 무엇을 쓰느냐"의 차이가 된다.</div>
+<div class="scene-cap">루트 시그니처가 곧 레코드의 배치도다. 바인딩 함수는 슬롯 번호로 말하고, 루트 시그니처가 그것을 바이트 오프셋으로 변환하며, 이 변환표가 있어서 bindless/비-bindless 분기도 결국 "어느 칸에 무엇을 쓰느냐"의 차이가 된다.</div>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -654,7 +666,7 @@ LocalRecordStride = RoundUpToNextMultiple(LocalRecordSizeUnaligned,
 }</div>
 
 <p style="color:var(--text2);line-height:1.85;">
-bindless에서 SRV의 디스크립터 힙 인덱스는 이미 <strong>유니폼 버퍼의 내용물</strong>(또는 loose 파라미터 상수 데이터)로 들어가 있고, 레코드에는 그 UB의 주소만 기록된다. 레코드에 인덱스가 직접 기록되는 유일한 예외가 05장의 시스템 IB/VB 두 개다. 이 둘은 UB를 거칠 수 없는 시스템 소유 리소스라 32바이트 루트 상수로 레코드에 통째로 들어간다. 그러면 셰이더의 <code>ByteAddressBuffer HitGroupSystemIndexBuffer;</code>라는, register 지정도 없는 선언은 어떻게 그 인덱스와 연결되는가. HLSL 매크로도 DXIL 바이너리 패치도 아니고, <strong>DXC(셰이더 컴파일러)에 소스가 들어가기 직전에 문자열 재작성기(rewriter)가 선언을 통째로 고쳐 쓴다</strong>. <code>FShaderParameterParser::ParseAndModify</code>가 register 지정 없는 전역 SRV 선언을 찾아내고, D3D 백엔드의 <code>GenerateBindlessAccess</code>(<code>D3DShaderCompiler.cpp:1404</code>)가 이 두 이름만 특수 취급해 인덱스 식을 레코드의 루트 상수 필드로 바꿔치기한다. 최종적으로 DXC가 받는 코드는 이렇다.
+bindless에서 SRV의 디스크립터 힙 인덱스는 이미 <strong>유니폼 버퍼의 내용물</strong>(또는 loose 파라미터<span class="fn-note"><input type="checkbox" id="fn-loose" class="fn-toggle"><label for="fn-loose" class="fn-ref">6</label><span class="fn-body"><strong>loose 파라미터:</strong> 유니폼 버퍼로 묶이지 않고 셰이더에 낱개로 넘어가는 상수 값들을 가리키는 언리얼 용어다. 버퍼를 따로 만들 만큼 크지 않은 자잘한 값들이라, RHI가 모아서 임시 상수 버퍼에 담아 넘긴다(<code>SetLooseParameterData</code>). 레코드 입장에서는 결국 유니폼 버퍼와 똑같이 "주소 하나"로 기록된다.</span></span> 상수 데이터)로 들어가 있고, 레코드에는 그 UB의 주소만 기록된다. 레코드에 인덱스가 직접 기록되는 유일한 예외가 05장의 시스템 IB/VB 두 개다. 이 둘은 UB를 거칠 수 없는 시스템 소유 리소스라 32바이트 루트 상수로 레코드에 통째로 들어간다. 그러면 셰이더의 <code>ByteAddressBuffer HitGroupSystemIndexBuffer;</code>라는, register 지정도 없는 선언은 어떻게 그 인덱스와 연결되는가. HLSL 매크로도 DXIL 바이너리 패치도 아니고, <strong>DXC(셰이더 컴파일러)에 소스가 들어가기 직전에 문자열 재작성기(rewriter)가 선언을 통째로 고쳐 쓴다</strong>. <code>FShaderParameterParser::ParseAndModify</code>가 register 지정 없는 전역 SRV 선언을 찾아내고, D3D 백엔드의 <code>GenerateBindlessAccess</code>(<code>D3DShaderCompiler.cpp:1404</code>)가 이 두 이름만 특수 취급해 인덱스 식을 레코드의 루트 상수 필드로 바꿔치기한다. 최종적으로 DXC가 받는 코드는 이렇다.
 </p>
 
 <div class="code-block"><div class="code-lang">HLSL — rewriter 통과 후 (DXC에 실제로 들어가는 형태)</div><span class="cm">// ByteAddressBuffer HitGroupSystemIndexBuffer;  ← 원래 선언이 아래로 재작성된다</span>
@@ -705,7 +717,11 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-이 대목을 <strong>실전 코드 루트</strong>로 한 번에 꿰어 보자. <code>SetRayTracingShaderResources</code>의 초입에는 렌더러가 넘긴 바인딩 배열을 타입별로 분배하는 switch가 있다. 히트그룹 하나가 바인딩될 때 리소스들이 이 다섯 케이스 중 하나로 들어온다.
+여기서 오해 하나를 미리 깨 두자. 세 종류 중 루트 CBV가 가리키는 유니폼 버퍼는 CPU가 매 프레임 값을 쓰는 업로드 힙, 즉 <strong>시스템 RAM</strong>에 있다. "시스템 RAM에 있으니 VRAM 압박과는 무관하겠지"라는 직관이 자연스럽지만 틀렸다. <code>Evict</code>는 "VRAM에서 내린다"가 아니라 <strong>GPU 페이지 테이블에서 그 주소의 매핑을 지우는</strong> API라서(01장), 물리 메모리가 어느 쪽에 있든 evict된 주소를 GPU가 읽으면 똑같이 주소 변환 실패다. 그리고 04장의 표에서 봤듯 업로드 힙 SmallBlock(4MiB)도 VRAM 풀과 똑같이 ManagedObject로 추적되는 블록이다. 유니폼 버퍼 수백 개가 4MiB 블록 하나를 나눠 쓰므로, 블록이 evict되는 순간 그 안의 UB 전부가 한꺼번에 GPU에서 접근 불가가 된다. 레코드에 기록된 루트 CBV 주소도 VB/IB와 정확히 같은 계약을 따른다. 등록이 있어야 접근이 보장된다.
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
+이 대목을 <strong>실전 코드 루트</strong>를 따라 처음부터 끝까지 이어서 확인해 보자. <code>SetRayTracingShaderResources</code>의 초입에는 렌더러가 넘긴 바인딩 배열을 타입별로 분배하는 switch가 있다. 히트그룹 하나가 바인딩될 때 리소스들이 이 다섯 케이스 중 하나로 들어온다.
 </p>
 
 <div class="code-block"><div class="code-lang">C++ — D3D12RayTracing.cpp:5753 (바인딩 타입 분배 switch)</div><span class="kw">for</span> (<span class="kw">uint32</span> BindlessParameterIndex = <span class="num">0</span>; BindlessParameterIndex &lt; InNumBindlessParameters; ++BindlessParameterIndex)
@@ -735,10 +751,10 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 }</div>
 
 <p style="color:var(--text2);line-height:1.85;">
-다섯 케이스 중 <code>ResourceCollection</code>이 선언 흐름의 성격을 가장 잘 보여준다. 리소스 컬렉션은 bindless 인덱스들을 담은 버퍼 하나로 여러 리소스를 묶어 바인딩하는 장치다. 셰이더는 컬렉션 버퍼를 읽고, 그 안의 인덱스로 다시 멤버 리소스를 읽는다. 그러니 컬렉션 버퍼만 신고해서는 부족하고, <strong>멤버 전부의 residency를 함께 보장</strong>해야 한다. 실제 코드가 정확히 그렇게 한다.
+다섯 케이스 중 <code>ResourceCollection</code>이 선언 흐름의 성격을 가장 잘 보여준다. 리소스 컬렉션은 bindless 인덱스들을 담은 버퍼 하나로 여러 리소스를 묶어 바인딩하는 장치다. 셰이더는 컬렉션 버퍼를 읽고, 그 안의 인덱스로 다시 멤버 리소스를 읽는다. 그러니 컬렉션 버퍼만 등록해서는 부족하고, <strong>멤버 전부의 residency를 함께 보장</strong>해야 한다. 실제 코드가 정확히 그렇게 한다.
 </p>
 
-<div class="code-block"><div class="code-lang">C++ — D3D12RayTracing.cpp:5693 (SetResourceCollection: 멤버 전부를 신고에 끌어들인다)</div><span class="kw">void</span> <span class="ty">SetResourceCollection</span>(<span class="ty">FRHIResourceCollection</span>* ResourceCollection, <span class="kw">uint8</span> Index)
+<div class="code-block"><div class="code-lang">C++ — D3D12RayTracing.cpp:5693 (SetResourceCollection: 멤버 전부를 등록에 끌어들인다)</div><span class="kw">void</span> <span class="ty">SetResourceCollection</span>(<span class="ty">FRHIResourceCollection</span>* ResourceCollection, <span class="kw">uint8</span> Index)
 {
     <span class="ty">FD3D12ResourceCollection</span>* D3D12ResourceCollection = FD3D12CommandContext::RetrieveObject&lt;...&gt;(ResourceCollection, GPUIndex);
     <span class="ty">FD3D12ShaderResourceView</span>* SRV = D3D12ResourceCollection ? D3D12ResourceCollection-&gt;GetShaderResourceView() : <span class="kw">nullptr</span>;
@@ -752,7 +768,7 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 
         <span class="kw">if</span> (<span class="ty">FD3D12RayTracingScene</span>* ReferencedRayTracingScene = MemberSRV-&gt;GetRayTracingScene())
         {
-            ReferencedRayTracingScenes.Add(ReferencedRayTracingScene);       <span class="cm">// ③ 중첩된 씬 → 08장의 씬 신고 목록으로</span>
+            ReferencedRayTracingScenes.Add(ReferencedRayTracingScene);       <span class="cm">// ③ 중첩된 씬 → 08장의 씬 등록 목록으로</span>
         }
     }
 
@@ -767,7 +783,7 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 }</div>
 
 <p style="color:var(--text2);line-height:1.85;">
-주석 그대로다. 컬렉션 버퍼 자신(①), 멤버 SRV 전부(②), 멤버 중 레이트레이싱 씬이 있으면 씬의 신고 목록(③, 08장), 텍스처 레퍼런스는 지금 가리키는 실제 텍스처(④)까지. 선언 흐름은 GPU가 간접적으로라도 닿을 수 있는 모든 것을 이렇게 집요하게 쫓아가야 성립한다. 이제 이 switch에서 등록된 텍스처 하나가 evict됐다가 되살아나는 왕복 전체를 코드 위치로 따라가면 이렇다.
+주석 그대로다. 컬렉션 버퍼 자신(①), 멤버 SRV 전부(②), 멤버 중 레이트레이싱 씬이 있으면 씬의 등록 목록(③, 08장), 텍스처 레퍼런스는 지금 가리키는 실제 텍스처(④)까지. 선언 흐름은 GPU가 간접적으로라도 닿을 수 있는 모든 것을 이렇게 집요하게 쫓아가야 성립한다. 이제 이 switch에서 등록된 텍스처 하나가 evict됐다가 되살아나는 왕복 전체를 코드 위치로 따라가면 이렇다.
 </p>
 
 <div class="data-table">
@@ -776,7 +792,7 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 <tr><td>바인딩</td><td>D3D12RayTracing.cpp:5753 → :5693</td><td>switch가 <code>Bindings.Set*</code>로 분배, <code>AddReferencedShaderResource</code>가 참조를 기억</td></tr>
 <tr><td>수집</td><td>:2370 (transient/persistent 분기)</td><td>워커별 <code>DynamicReferencedResources</code> 또는 refcount 맵 + 리스너</td></tr>
 <tr><td>마감</td><td>Commit :1683</td><td><code>ReferencedResources</code> 평면 배열로 재구축 + SBT 버퍼 업로드 (07장)</td></tr>
-<tr><td>신고</td><td>DispatchRays :6134 → UpdateResidency :2667</td><td>배열 순회하며 <code>CommandContext.UpdateResidency</code> (커맨드리스트당 1회)</td></tr>
+<tr><td>등록</td><td>DispatchRays :6134 → UpdateResidency :2667</td><td>배열 순회하며 <code>CommandContext.UpdateResidency</code> (커맨드리스트당 1회)</td></tr>
 <tr><td>삽입</td><td>D3D12CommandList.cpp:11 → :41</td><td><code>GetResidencyHandles()</code>로 블록 핸들 획득 → <code>ResidencySet.Insert</code> (09장)</td></tr>
 <tr><td>Submit</td><td>WindowsD3D12Device.cpp:2451</td><td>언리얼 대신 <code>ResidencyManager::ExecuteCommandLists</code>가 큐를 부름</td></tr>
 <tr><td>복구</td><td>d3dx12residency.h:1290 (ProcessPagingWork)</td><td>핸들이 EVICTED면 MakeResident 배치에 추가, 타임스탬프 갱신 (10장)</td></tr>
@@ -785,44 +801,44 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-핵심은 <strong>evict와 복구가 렌더러 코드 어디에도 없다</strong>는 점이다. 바인딩 코드는 참조를 기억할 뿐이고, evict는 10장의 매니저가 예산을 보고 알아서 하며, 복구는 신고가 살아 있는 다음 Submit의 <code>ProcessPagingWork</code>가 EVICTED 상태를 발견하는 순간 자동으로 일어난다. 프레임 단위로 그리면 이렇다.
+핵심은 <strong>evict와 복구가 렌더러 코드 어디에도 없다</strong>는 점이다. 바인딩 코드는 참조를 기억할 뿐이고, evict는 10장의 매니저가 예산을 보고 알아서 하며, 복구는 등록이 살아 있는 다음 Submit의 <code>ProcessPagingWork</code>가 EVICTED 상태를 발견하는 순간 자동으로 일어난다. 프레임 단위로 그리면 이렇다.
 </p>
 
 <div class="scene-fig">
-<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="프레임 타임라인. 신고가 유지되는 리소스는 evict됐다가도 다음 Submit에서 MakeResident로 복구되어 GPU가 안전하게 읽지만, 신고가 누락된 리소스는 복구 기회 없이 페이지 폴트가 난다">
+<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="프레임 타임라인. 등록이 유지되는 리소스는 evict됐다가도 다음 Submit에서 MakeResident로 복구되어 GPU가 안전하게 읽지만, 등록이 누락된 리소스는 복구 기회 없이 페이지 폴트가 난다">
 <defs><marker id="rt-a" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#6b7484"/></marker></defs>
 <g font-family="Consolas, monospace" font-size="11" fill="#4b5563">
 <text x="120" y="34">프레임 N</text><text x="300" y="34">프레임 사이</text><text x="500" y="34">프레임 N+1</text>
 </g>
 <line x1="250" y1="20" x2="250" y2="280" stroke="#d5dbe6" stroke-width="1"/>
 <line x1="450" y1="20" x2="450" y2="280" stroke="#d5dbe6" stroke-width="1"/>
-<text x="24" y="66" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#1e6e64">신고가 살아 있는 리소스</text>
+<text x="24" y="66" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#1e6e64">등록이 살아 있는 리소스</text>
 <rect x="60" y="78" width="150" height="34" rx="6" fill="#e9f6f4" stroke="#2a9d8f" stroke-width="1.5"/>
-<text x="72" y="99" font-family="Consolas, monospace" font-size="10.5" fill="#1e6e64">신고 + 사용 · RESIDENT</text>
+<text x="72" y="99" font-family="Consolas, monospace" font-size="10.5" fill="#1e6e64">등록 + 사용 · RESIDENT</text>
 <rect x="270" y="78" width="150" height="34" rx="6" fill="#eef2f8" stroke="#9aa4b2" stroke-width="1.5" stroke-dasharray="5 3"/>
 <text x="282" y="93" font-family="Consolas, monospace" font-size="10" fill="#3d4654">예산 압박 → 블록 evict</text>
 <text x="282" y="106" font-family="Consolas, monospace" font-size="10" fill="#8b93a3">(다른 앱이 VRAM 점유)</text>
 <rect x="470" y="78" width="266" height="34" rx="6" fill="#e9f6f4" stroke="#2a9d8f" stroke-width="1.5"/>
-<text x="482" y="93" font-family="Consolas, monospace" font-size="10" fill="#1e6e64">재신고 → ProcessPagingWork가 EVICTED 발견</text>
+<text x="482" y="93" font-family="Consolas, monospace" font-size="10" fill="#1e6e64">재등록 → ProcessPagingWork가 EVICTED 발견</text>
 <text x="482" y="106" font-family="Consolas, monospace" font-size="10" fill="#1e6e64">→ MakeResident → GPU 게이트 → 읽기 성공</text>
 <path d="M 210 95 L 268 95" fill="none" stroke="#6b7484" stroke-width="1.5" marker-end="url(#rt-a)"/>
 <path d="M 420 95 L 468 95" fill="none" stroke="#6b7484" stroke-width="1.5" marker-end="url(#rt-a)"/>
 <text x="470" y="132" font-family="Segoe UI, sans-serif" font-size="10.5" fill="#4b8a82">앱은 아무것도 몰라도 된다 (페이징 히치만 남는다)</text>
-<text x="24" y="176" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#a3243a">신고가 누락된 리소스 (레코드에 주소만 남음)</text>
+<text x="24" y="176" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#a3243a">등록이 누락된 리소스 (레코드에 주소만 남음)</text>
 <rect x="60" y="188" width="150" height="34" rx="6" fill="#e9f6f4" stroke="#2a9d8f" stroke-width="1.5"/>
-<text x="72" y="209" font-family="Consolas, monospace" font-size="10.5" fill="#1e6e64">신고 + 사용 · RESIDENT</text>
+<text x="72" y="209" font-family="Consolas, monospace" font-size="10.5" fill="#1e6e64">등록 + 사용 · RESIDENT</text>
 <rect x="270" y="188" width="150" height="34" rx="6" fill="#eef2f8" stroke="#9aa4b2" stroke-width="1.5" stroke-dasharray="5 3"/>
-<text x="282" y="203" font-family="Consolas, monospace" font-size="10" fill="#3d4654">신고 끊김 + 70% 초과</text>
+<text x="282" y="203" font-family="Consolas, monospace" font-size="10" fill="#3d4654">등록 끊김 + 70% 초과</text>
 <text x="282" y="216" font-family="Consolas, monospace" font-size="10" fill="#8b93a3">→ 유예 지나 evict</text>
 <rect x="470" y="188" width="266" height="34" rx="6" fill="#fdeef0" stroke="#d6304a" stroke-width="1.8"/>
-<text x="482" y="203" font-family="Consolas, monospace" font-size="10" fill="#a3243a">재신고 없음 → 복구 기회 없음 → GPU가</text>
+<text x="482" y="203" font-family="Consolas, monospace" font-size="10" fill="#a3243a">재등록 없음 → 복구 기회 없음 → GPU가</text>
 <text x="482" y="216" font-family="Consolas, monospace" font-size="10" font-weight="700" fill="#d6304a">레코드의 낡은 주소를 읽음 → PAGE FAULT</text>
 <path d="M 210 205 L 268 205" fill="none" stroke="#6b7484" stroke-width="1.5" marker-end="url(#rt-a)"/>
 <path d="M 420 205 L 468 205" fill="none" stroke="#6b7484" stroke-width="1.5" marker-end="url(#rt-a)"/>
 <text x="470" y="242" font-family="Segoe UI, sans-serif" font-size="10.5" fill="#a3243a">VRAM 넉넉한 개발 머신에서는 evict 자체가 없어 증상이 숨는다</text>
 <text x="24" y="278" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#6b7484">두 줄의 차이는 단 하나, 프레임 N+1의 Submit에 그 블록의 핸들이 ResidencySet에 들어 있었는가다.</text>
 </svg>
-<div class="scene-cap">evict와 복구의 왕복. 신고가 유지되는 한 evict는 투명하게 복구된다. 신고가 끊긴 리소스만 복구 기회 없이 페이지 폴트로 간다. 10장의 ResidencyDebugBudgetMB가 하는 일이 바로 왼쪽 상황을 개발 머신에서 강제하는 것이다.</div>
+<div class="scene-cap">evict와 복구의 왕복. 등록이 유지되는 한 evict는 투명하게 복구된다. 등록이 끊긴 리소스만 복구 기회 없이 페이지 폴트로 간다. 10장의 ResidencyDebugBudgetMB가 하는 일이 바로 왼쪽 상황을 개발 머신에서 강제하는 것이다.</div>
 </div>
 </div>
 
@@ -851,7 +867,7 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 }</div>
 
 <p style="color:var(--text2);line-height:1.85;">
-06장에서 모은 기록을 GPU로 올리는 마무리 단계가 <code>Commit</code>(<code>D3D12RayTracing.cpp:1683</code>)이다. 최대 5개 워커가 병렬로 채운 참조들을 병합하고, persistent refcount 맵의 키들과 이번 프레임의 transient 참조를 이어 붙여 <strong><code>ReferencedResources</code>라는 평면 배열 하나로 재구축</strong>한다. 이 배열이 09장에서 디스패치 시 신고의 단일 출처가 된다. 그다음 단계는 예상과 다른데, persistent SBT라 해도 GPU 업로드는 증분이 아니다. <strong>매 Commit마다 새 디폴트 힙 버퍼(VRAM에 두는 GPU 전용 메모리)를 만들어 CPU 미러 전체를 카피 큐(그리기와 병렬로 도는 복사 전용 GPU 큐)로 복사</strong>하고 이전 버퍼는 지연 해제한다. persistent가 아끼는 것은 업로드가 아니라 CPU 쪽 바인딩 재생성(디스크립터/루트 파라미터 재작성) 비용이다.
+06장에서 모은 기록을 GPU로 올리는 마무리 단계가 <code>Commit</code>(<code>D3D12RayTracing.cpp:1683</code>)이다. 최대 5개 워커가 병렬로 채운 참조들을 병합하고, persistent refcount 맵의 키들과 이번 프레임의 transient 참조를 이어 붙여 <strong><code>ReferencedResources</code>라는 평면 배열 하나로 재구축</strong>한다. 이 배열이 09장에서 디스패치 시 등록의 단일 출처가 된다. 그다음 단계는 예상과 다른데, persistent SBT라 해도 GPU 업로드는 증분이 아니다. <strong>매 Commit마다 새 디폴트 힙 버퍼(VRAM에 두는 GPU 전용 메모리)를 만들어 CPU 미러 전체를 카피 큐(그리기와 병렬로 도는 복사 전용 GPU 큐)로 복사</strong>하고 이전 버퍼는 지연 해제한다. persistent가 아끼는 것은 업로드가 아니라 CPU 쪽 바인딩 재생성(디스크립터/루트 파라미터 재작성) 비용이다.
 </p>
 
 <div class="scene-fig">
@@ -866,7 +882,7 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 <rect x="150" y="46" width="210" height="70" rx="8" fill="#f3f6fb" stroke="#2b2f3d" stroke-width="1.5"/>
 <text x="164" y="72" font-family="Consolas, monospace" font-size="11" font-weight="700" fill="#2b2f3d">ReferencedResources[]</text>
 <text x="164" y="92" font-family="Consolas, monospace" font-size="10" fill="#6b7484">persistent refcount 키 + transient</text>
-<text x="164" y="106" font-family="Consolas, monospace" font-size="10" fill="#6b7484">→ 09장 디스패치 신고의 단일 출처</text>
+<text x="164" y="106" font-family="Consolas, monospace" font-size="10" fill="#6b7484">→ 09장 디스패치 등록의 단일 출처</text>
 <rect x="408" y="30" width="150" height="50" rx="8" fill="#fdf7ec" stroke="#d9a441" stroke-width="1.5"/>
 <text x="420" y="52" font-family="Consolas, monospace" font-size="10.5" fill="#5c4308">CPU 미러 Data</text>
 <text x="420" y="68" font-family="Consolas, monospace" font-size="10" fill="#8a6716">(레코드 전체)</text>
@@ -905,7 +921,7 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 <span class="section-eyebrow">08 — 씬 추적</span>
 </div>
 
-# 씬 추적: 아무도 바인딩하지 않는 버퍼는 TLAS가 신고한다
+# 씬 추적: 아무도 바인딩하지 않는 버퍼는 TLAS가 등록한다
 
 <div class="research-post">
 <div class="callout callout-info">
@@ -914,7 +930,7 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-선언 흐름에는 SBT의 <code>ReferencedResources</code>만으로 커버되지 않는 큰 구멍이 있다. 레이트레이싱의 <strong>간접 참조</strong>들이다. TLAS는 내부에 BLAS(개별 메시의 삼각형 가속 구조)들의 GPU 주소를 품고, 히트 셰이더는 05장의 시스템 파라미터로 각 지오메트리의 버텍스/인덱스 버퍼를 읽는다. 그런데 이것들은 <strong>어떤 드로우콜의 바인딩에도 등장하지 않는다</strong>. 디스크립터를 만드는 것도 아니고 배리어를 거는 것도 아니니, 커맨드리스트 기록 중에 자동으로 신고될 계기가 없다. 누군가 대신 신고해야 하고, 그 누군가가 <code>FD3D12RayTracingScene</code>(TLAS의 D3D12 구현)이다.
+선언 흐름에는 SBT의 <code>ReferencedResources</code>만으로 커버되지 않는 큰 구멍이 있다. 레이트레이싱의 <strong>간접 참조</strong>들이다. TLAS는 내부에 BLAS(개별 메시의 삼각형 가속 구조)들의 GPU 주소를 품고, 히트 셰이더는 05장의 시스템 파라미터로 각 지오메트리의 버텍스/인덱스 버퍼를 읽는다. 그런데 이것들은 <strong>어떤 드로우콜의 바인딩에도 등장하지 않는다</strong>. 디스크립터를 만드는 것도 아니고 배리어<span class="fn-note"><input type="checkbox" id="fn-barrier" class="fn-toggle"><label for="fn-barrier" class="fn-ref">7</label><span class="fn-body"><strong>배리어(resource barrier):</strong> "이 리소스를 지금부터 다른 용도로 쓸 테니 상태를 바꿔라"라고 D3D12에 알리는 명령이다. 렌더 타깃으로 쓰던 텍스처를 셰이더에서 읽으려면 그 사이에 배리어가 필요하다. 배리어를 걸려면 대상 리소스를 지목해야 하므로, 배리어를 거는 것만으로도 "이 커맨드리스트가 이 리소스를 쓴다"는 사실이 드러난다. 본문의 요지는 레이 트레이싱 지오메트리 버퍼가 디스크립터도 배리어도 거치지 않아 그런 계기가 아예 없다는 것이다.</span></span>를 거는 것도 아니니, 커맨드리스트 기록 중에 자동으로 등록될 계기가 없다. 누군가 대신 등록해야 하고, 그 누군가가 <code>FD3D12RayTracingScene</code>(TLAS의 D3D12 구현)이다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -966,11 +982,11 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 <text x="40" y="266" font-family="Consolas, monospace" font-size="10.5" fill="#2b2f3d">DispatchResourcesToMakeResident: [VB/IB 풀 블록#1][블록#3]…             ← 디스패치에만</text>
 <text x="40" y="288" font-family="Consolas, monospace" font-size="10.5" fill="#6b7484">같은 32MiB 블록의 버퍼들은 residency handle 기준 dedup으로 한 번만 등록된다 (04장의 구조를 그대로 활용)</text>
 </svg>
-<div class="scene-cap">간접 참조 체인과 씬이 대신 해 주는 신고. TLAS를 SRV로 바인딩하는 순간에도 디스크립터 캐시가 씬의 UpdateResidency를 불러 주므로, 레이트레이싱 씬을 쓰는 컴퓨트 셰이더에서도 이 목록이 함께 신고된다.</div>
+<div class="scene-cap">간접 참조 체인과 씬이 대신 해 주는 등록. TLAS를 SRV로 바인딩하는 순간에도 디스크립터 캐시가 씬의 UpdateResidency를 불러 주므로, 레이트레이싱 씬을 쓰는 컴퓨트 셰이더에서도 이 목록이 함께 등록된다.</div>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-이 캐시가 성립하려면 BLAS가 자기 버텍스/인덱스 버퍼를 놓아 버리면 안 된다. 실제로 <code>FD3D12RayTracingGeometry</code>는 빌드가 끝나도 Initializer의 <code>FBufferRHIRef</code>(refcount 참조)를 <strong>객체 수명 내내 유지</strong>하고, 버퍼가 rename되면 리스너로 감지해 <code>ResourceGeneration</code>을 올리고 시스템 파라미터를 다시 계산한다(06장의 레코드 갱신으로 이어진다). 씬의 신고 실행부는 단순하다. <code>FD3D12RayTracingScene::UpdateResidency(CommandContext, bIncludeDispatchResources)</code>(<code>:4889</code>)가 목록을 순회하며 커맨드리스트에 넣는데, TLAS <strong>빌드 시에는 VB/IB를 제외</strong>(false)하고 <strong>디스패치 시에는 포함</strong>(true)해서 부른다. 빌드는 BLAS만 읽고, 트레이스는 히트 셰이더가 VB/IB까지 읽기 때문이다.
+이 캐시가 성립하려면 BLAS가 자기 버텍스/인덱스 버퍼를 놓아 버리면 안 된다. 실제로 <code>FD3D12RayTracingGeometry</code>는 빌드가 끝나도 Initializer의 <code>FBufferRHIRef</code>(refcount 참조)를 <strong>객체 수명 내내 유지</strong>하고, 버퍼가 rename되면 리스너로 감지해 <code>ResourceGeneration</code>을 올리고 시스템 파라미터를 다시 계산한다(06장의 레코드 갱신으로 이어진다). 씬의 등록 실행부는 단순하다. <code>FD3D12RayTracingScene::UpdateResidency(CommandContext, bIncludeDispatchResources)</code>(<code>:4889</code>)가 목록을 순회하며 커맨드리스트에 넣는데, TLAS <strong>빌드 시에는 VB/IB를 제외</strong>(false)하고 <strong>디스패치 시에는 포함</strong>(true)해서 부른다. 빌드는 BLAS만 읽고, 트레이스는 히트 셰이더가 VB/IB까지 읽기 때문이다.
 </p>
 </div>
 
@@ -978,7 +994,7 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 <span class="section-eyebrow">09 — 디스패치 선언</span>
 </div>
 
-# 디스패치: 네 갈래 신고가 ResidencySet으로 모인다
+# 디스패치: 네 갈래 등록이 ResidencySet으로 모인다
 
 <div class="research-post">
 <div class="callout callout-info">
@@ -987,11 +1003,11 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-이제 두 흐름이 만나기 직전이다. <code>RHIRayTraceDispatch</code>가 공통 함수 <code>DispatchRays</code>(<code>D3D12RayTracing.cpp:6012</code>)로 들어가면, 실제 <code>DispatchRays</code> API를 부르기 전에 이번 디스패치가 쓸 모든 것을 커맨드리스트의 ResidencySet에 넣는 신고 절차가 먼저 실행된다. 네 갈래다.
+이제 두 흐름이 만나기 직전이다. <code>RHIRayTraceDispatch</code>가 공통 함수 <code>DispatchRays</code>(<code>D3D12RayTracing.cpp:6012</code>)로 들어가면, 실제 <code>DispatchRays</code> API를 부르기 전에 이번 디스패치가 쓸 모든 것을 커맨드리스트의 ResidencySet에 넣는 등록 절차가 먼저 실행된다. 네 갈래다.
 </p>
 
 <div class="scene-fig">
-<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DispatchRays에서 글로벌 바인딩, 씬, SBT, RayGen 레코드 네 갈래의 신고가 커맨드리스트의 ResidencySet 하나로 모이는 그림">
+<svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DispatchRays에서 글로벌 바인딩, 씬, SBT, RayGen 레코드 네 갈래의 등록이 커맨드리스트의 ResidencySet 하나로 모이는 그림">
 <defs><marker id="dp-a" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#2a9d8f"/></marker></defs>
 <g>
 <rect x="24" y="30" width="300" height="48" rx="7" fill="#f3f6fb" stroke="#c9d2e0"/>
@@ -1021,15 +1037,49 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 <text x="490" y="132" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700" fill="#1e6e64">커맨드리스트의 ResidencySet</text>
 <text x="490" y="154" font-family="Consolas, monospace" font-size="10.5" fill="#2b2f3d">Insert(블록 핸들) × 전부</text>
 <text x="490" y="174" font-family="Consolas, monospace" font-size="10.5" fill="#6b7484">중복은 bool 매트릭스가 O(1) 스킵</text>
-<text x="472" y="230" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#4b5563">이 신고가 모두 끝난 뒤에야</text>
+<text x="472" y="230" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#4b5563">이 등록이 모두 끝난 뒤에야</text>
 <text x="472" y="250" font-family="Consolas, monospace" font-size="11.5" fill="#2b2f3d">SetPipelineState1 → DispatchRays()</text>
-<text x="24" y="286" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#a3243a">크래시가 나는 지점이 정확히 여기다: 레코드(05~08장)에 주소는 남아 있는데 이 네 갈래 어디에서도 신고되지 않는 리소스.</text>
+<text x="24" y="286" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#a3243a">크래시가 나는 지점이 정확히 여기다: 레코드(05~08장)에 주소는 남아 있는데 이 네 갈래 어디에서도 등록되지 않는 리소스.</text>
 </svg>
-<div class="scene-cap">디스패치 직전의 신고 절차. SBT는 UniqueId로 같은 커맨드리스트에서의 중복 순회를 피하고, 씬은 08장의 캐시를 그대로 흘려 넣는다. 인다이렉트 디스패치면 인자 버퍼 3종도 추가로 신고된다.</div>
+<div class="scene-cap">디스패치 직전의 등록 절차. SBT는 UniqueId로 같은 커맨드리스트에서의 중복 순회를 피하고, 씬은 08장의 캐시를 그대로 흘려 넣는다. 인다이렉트 디스패치면 인자 버퍼 3종도 추가로 등록된다.</div>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-③의 코드에는 중복 순회를 피하는 장치가 하나 더 있다. 같은 SBT로 한 커맨드리스트에서 수십 번 디스패치하는 것(섀도, 리플렉션, GI가 SBT를 공유한다)이 일상이라, SBT마다 부여된 원자 카운터 <code>UniqueId</code>를 커맨드 컨텍스트의 셋에서 확인해 <strong>커맨드리스트당 한 번만</strong> <code>ReferencedResources</code>를 순회한다. 신고 자체도 04장 덕에 리소스 수가 아니라 블록 수에 비례한다. 신고가 끝나면 커맨드리스트에는 "실행할 것"(DispatchRays 커맨드)과 "필요한 것"(ResidencySet)이 나란히 담긴 채 닫혀서 Submit 스레드(RHISubmissionThread)로 넘어간다. 이로써 두 흐름이 커맨드리스트 하나 안에서 만났다. 남은 것은 Submit 시점에 이 선언대로 VRAM 상태를 맞추는 일이다.
+그런데 "등록한다"는 게 코드에서는 정확히 무엇일까. 네 갈래 모두 결국 <code>FD3D12CommandContext::UpdateResidency()</code> 한 함수로 수렴한다. ③(SBT)을 예로 들면 이렇다.
+</p>
+
+<div class="code-block"><div class="code-lang">C++ — D3D12RayTracing.cpp:2667 (SBT가 자기 참조 목록을 등록)</div><span class="cm">// FD3D12RayTracingShaderBindingTableInternal의 멤버</span>
+<span class="kw">void</span> <span class="ty">UpdateResidency</span>(<span class="ty">FD3D12CommandContext</span>&amp; CommandContext) <span class="kw">const</span>
+{
+    <span class="kw">bool</span> bWasAlreadyInSet = <span class="kw">false</span>;
+    CommandContext.RayTracingShaderTables.<span class="fn">FindOrAdd</span>(UniqueId, bWasAlreadyInSet);
+    <span class="kw">if</span> (bWasAlreadyInSet) <span class="kw">return</span>;        <span class="cm">// 같은 커맨드리스트에서 두 번째부터는 스킵</span>
+
+    <span class="kw">for</span> (<span class="ty">FD3D12Resource</span>* Resource : ReferencedResources)
+        CommandContext.<span class="fn">UpdateResidency</span>(Resource);   <span class="cm">// ← 등록은 결국 이 호출이다</span>
+
+    CommandContext.<span class="fn">UpdateResidency</span>(Buffer-&gt;<span class="fn">GetResource</span>());  <span class="cm">// SBT 버퍼 자신도</span>
+}</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+그리고 그 호출의 종착지가 커맨드리스트다. 여기서 04장의 "단위는 버퍼가 아니라 블록"이 코드로 드러난다. 등록되는 것은 리소스가 아니라 그 리소스가 얹힌 <strong>블록의 residency 핸들</strong>이다.
+</p>
+
+<div class="code-block"><div class="code-lang">C++ — D3D12CommandList.cpp:11 (등록의 종착지)</div><span class="kw">void</span> <span class="ty">FD3D12CommandList</span>::<span class="fn">UpdateResidency</span>(<span class="kw">const</span> <span class="ty">FD3D12Resource</span>* Resource)
+{
+    <span class="kw">if</span> (Resource-&gt;<span class="fn">NeedsDeferredResidencyUpdate</span>())          <span class="cm">// reserved(타일) 리소스는 매핑이 바뀌므로</span>
+        State.DeferredResidencyUpdateSet.<span class="fn">Add</span>(Resource);    <span class="cm">// 닫을 때 몰아서 처리</span>
+    <span class="kw">else</span>
+        <span class="fn">AddToResidencySet</span>(Resource-&gt;<span class="fn">GetResidencyHandles</span>());  <span class="cm">// 블록 핸들을 set에 삽입</span>
+}</div>
+
+<div class="callout callout-warn">
+<div class="callout-title">헷갈리기 쉬운 이웃: AddReferencedUniformBuffer()</div>
+<p>같은 파일의 <code>AddReferencedUniformBuffer()</code>(<code>D3D12RayTracing.cpp:2437</code>)는 이름이 비슷하지만 <strong>residency 등록와 무관하다</strong>. 이 함수는 <code>Lifetime</code>과 바인딩 타입이 모두 <code>Persistent</code>일 때만 동작하며, 하는 일은 <code>FRecordUpdateUniformBufferListener</code>를 달아 두는 것이다. 나중에 그 유니폼 버퍼의 주소가 바뀌면 이미 기록해 둔 SBT 레코드를 제자리에서 고쳐 쓰기 위한 장치이고(07장의 레코드 갱신), VRAM에 남길지 말지를 정하는 이 장의 등록와는 다른 축이다.</p>
+</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+③의 코드에는 중복 순회를 피하는 장치가 하나 더 있다. 같은 SBT로 한 커맨드리스트에서 수십 번 디스패치하는 것(섀도, 리플렉션, GI가 SBT를 공유한다)이 일상이라, SBT마다 부여된 원자 카운터 <code>UniqueId</code>를 커맨드 컨텍스트의 셋에서 확인해 <strong>커맨드리스트당 한 번만</strong> <code>ReferencedResources</code>를 순회한다. 등록 자체도 04장 덕에 리소스 수가 아니라 블록 수에 비례한다. 등록이 끝나면 커맨드리스트에는 "실행할 것"(DispatchRays 커맨드)과 "필요한 것"(ResidencySet)이 나란히 담긴 채 닫혀서 Submit 스레드(RHISubmissionThread)로 넘어간다. 이로써 두 흐름이 커맨드리스트 하나 안에서 만났다. 남은 것은 Submit 시점에 이 선언대로 VRAM 상태를 맞추는 일이다.
 </p>
 </div>
 
@@ -1037,12 +1087,12 @@ SafeTypeHitGroupSystemIndexBuffer <span class="ty">GetBindlessSRVHitGroupSystemI
 <span class="section-eyebrow">10 — Submit과 페이징</span>
 </div>
 
-# Submit의 관문: 예산 70%, 유예 60초에서 1초, 그리고 GPU 게이트
+# Submit: 예산을 재고, 쫓아내고, 복구를 기다린다
 
 <div class="research-post">
 <div class="callout callout-info">
 <div class="callout-title">언제 불리나: 전체 흐름의 ⑦</div>
-RHI 스레드가 번역을 마친 커맨드리스트 묶음(페이로드)을 넘기면 Submit 스레드가 프레임당 여러 번 이 경로를 돈다. evict와 restore가 실제로 일어나는 유일한 장소다.
+RHI 스레드가 옮겨 적기(translate)를 마친 커맨드리스트 묶음(페이로드)을 넘기면 Submit 스레드가 프레임당 여러 번 이 경로를 돈다. evict와 restore가 실제로 일어나는 유일한 장소다.
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
@@ -1064,7 +1114,7 @@ RHI 스레드가 번역을 마친 커맨드리스트 묶음(페이로드)을 넘
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-핵심은 4단계 <code>ProcessPagingWork</code>(<code>:1257</code>)다. 마스터셋을 순회하며 EVICTED인 멤버를 MakeResident 목록에 담고, <strong>모든 멤버의 <code>LastGPUSyncPoint</code>와 <code>LastUsedTimestamp</code>를 갱신하고 LRU 꼬리로 보낸다</strong>. 선언 흐름의 최종 효과가 바로 이 갱신이다. 매 Submit마다 신고되는 리소스는 LRU 꼬리 쪽(최근 사용)에 계속 남아 evict 후보에서 벗어나고, 신고가 끊긴 리소스만 LRU 머리 쪽(가장 오래됨)에 고인다. 그다음이 트리밍인데, 상수 세 개가 정책의 전부다.
+핵심은 4단계 <code>ProcessPagingWork</code>(<code>:1257</code>)다. 마스터셋을 순회하며 EVICTED인 멤버를 MakeResident 목록에 담고, <strong>모든 멤버의 <code>LastGPUSyncPoint</code>와 <code>LastUsedTimestamp</code>를 갱신하고 LRU 꼬리로 보낸다</strong>. 선언 흐름의 최종 효과가 바로 이 갱신이다. 매 Submit마다 등록되는 리소스는 LRU 꼬리 쪽(최근 사용)에 계속 남아 evict 후보에서 벗어나고, 등록이 끊긴 리소스만 LRU 머리 쪽(가장 오래됨)에 고인다. 그다음이 트리밍인데, 상수 세 개가 정책의 전부다.
 </p>
 
 <div class="code-block"><div class="code-lang">C++ — d3dx12residency.h:688, :1625 (eviction 정책 상수와 유예 계산)</div>cMinEvictionGracePeriod(<span class="num">1.0f</span>),                  <span class="cm">// 최소 유예 1초</span>
@@ -1109,16 +1159,33 @@ cTrimPercentageMemoryUsageThreshold(<span class="num">0.7f</span>),      <span c
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
+정리 이야기로 넘어가기 전에 <strong>세대(generation)</strong>를 짚어야 한다. 뒤에 나올 두 정리가 모두 이 장치에 기대기 때문이다. <code>ResidencyManager</code>는 <code>CurrentSyncPointGeneration</code>이라는 카운터를 하나 들고 있고, <code>ExecuteCommandLists</code>가 한 번 돌 때마다 이 값을 1 올린다(<code>:1062</code>). 즉 <strong>세대 = 몇 번째 Submit인가</strong>다. 그리고 4단계에서 갱신한다고 한 <code>LastGPUSyncPoint</code>가 바로 <strong>"이 리소스가 마지막으로 등록된 세대"</strong>다. 세대마다 그 시점의 큐별 펜스 값을 묶어 <code>DeviceWideSyncPoint</code>로 남겨 두므로, "세대 N의 작업을 GPU가 다 끝냈는가"는 펜스를 읽어 바로 판정할 수 있다. 정리 코드가 하는 비교가 정확히 이것이다.
+</p>
+
+<div class="code-block"><div class="code-lang">C++ — d3dx12residency.h:634, :610 (두 정리의 안전 조건)</div><span class="cm">// aged eviction: GPU가 아직 그 세대를 돌고 있으면 손대지 않는다</span>
+<span class="kw">if</span> ((MaxSyncPoint &amp;&amp; pObject-&gt;LastGPUSyncPoint &gt;= MaxSyncPoint-&gt;GenerationID)  <span class="cm">// 아직 안 끝난 세대</span>
+    || CurrentTimeStamp - pObject-&gt;LastUsedTimestamp &lt;= MinDelta)                 <span class="cm">// 유예 안에 쓰였음</span>
+    <span class="kw">break</span>;   <span class="cm">// LRU가 오래된 순으로 정렬돼 있으니, 여기서 멈추면 뒤는 볼 필요도 없다</span>
+
+<span class="cm">// budget eviction: 완료를 기다린 세대까지만 밀어낸다</span>
+<span class="kw">if</span> (pObject-&gt;LastGPUSyncPoint &gt; SyncPoint || CurrentUsage &lt; CurrentBudget)
+    <span class="kw">break</span>;</div>
+
+<p style="color:var(--text2);line-height:1.85;">
+헷갈리기 쉬운 부분을 하나 정리해 두자. 세대로 판정하는 것은 <strong>"지금 쫓아내도 안전한가"</strong> 하나뿐이다. 이 리소스가 현재 evict된 상태인지 아닌지는 세대가 아니라 <code>ManagedObject</code>의 별도 필드인 <strong><code>ResidencyStatus</code></strong>(<code>RESIDENT</code> / <code>EVICTED</code>)가 들고 있다. 4단계가 마스터셋을 훑어 <code>EVICTED</code>인 멤버만 골라 <code>MakeResident</code> 목록에 담는다고 한 것이 이 필드를 보는 것이다. 정리하면 질문마다 보는 필드가 다르다. <strong>"무엇이 내려가 있나"는 <code>ResidencyStatus</code>로, "내려도 되나"는 세대로, "내릴 만큼 오래됐나"는 타임스탬프로 판정한다.</strong>
+</p>
+
+<p style="color:var(--text2);line-height:1.85;">
 eviction은 두 갈래다. <strong>aged eviction</strong>(<code>TrimAgedAllocations</code>)은 매 Submit마다 도는 가벼운 정리로, LRU 머리부터 "GPU가 이미 다 쓴 것"이면서 "유예 시간보다 오래 안 쓰인 것"만 걷어 낸다. GPU를 기다리지 않는다. <strong>budget eviction</strong>(<code>TrimToSyncPointInclusive</code>)은 MakeResident할 자리가 없을 때만 발동하는 강제 정리로, 이때는 <code>WaitForSyncPoint</code>로 <strong>CPU가 GPU의 완료를 실제로 블록하며 기다린 뒤</strong> 그 세대까지 쓰인 것들을 밀어낸다. 프레임 스파이크가 나는 지점이다. 그마저 실패하면, 즉 커맨드리스트 하나가 요구하는 워킹셋 자체가 시스템이 감당 못 할 크기면 라이브러리는 예산을 무시하고 강행하며, 소스에는 이런 주석이 남아 있다: <code>"TODO: What should we do if this fails? This is a catastrophic failure in which the app is trying to use more memory in 1 command list than can possibly be made resident by the system."</code>
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-마지막으로 볼 것이 5단계 GPU 게이트다. MakeResident는 <code>ID3D12Device3::EnqueueMakeResident</code>로 OS 페이징 큐에 비동기로 걸리고, 완료 시 페이징 펜스(<code>AsyncThreadFence</code>)가 시그널된다. Submit 직전에 큐에 <code>Wait(페이징 펜스)</code>를 걸어 두므로, <strong>CPU는 페이징을 기다리지 않고 다음 일을 하러 가고 GPU만 자기 일감의 메모리가 준비될 때까지 대기</strong>한다. 이 게이트 덕분에 "신고된 리소스는 GPU가 읽는 시점에 반드시 resident"라는 계약이 성립한다. 뒤집어 말하면, 신고 안 된 리소스에게는 이 계약이 처음부터 없다.
+마지막으로 볼 것이 5단계 GPU 게이트다. MakeResident는 <code>ID3D12Device3::EnqueueMakeResident</code>로 OS 페이징 큐에 비동기로 걸리고, 완료 시 페이징 펜스(<code>AsyncThreadFence</code>)가 시그널된다. Submit 직전에 큐에 <code>Wait(페이징 펜스)</code>를 걸어 두므로, <strong>CPU는 페이징을 기다리지 않고 다음 일을 하러 가고 GPU만 자기 일감의 메모리가 준비될 때까지 대기</strong>한다. 이 게이트 덕분에 "등록된 리소스는 GPU가 읽는 시점에 반드시 resident"라는 계약이 성립한다. 뒤집어 말하면, 등록 안 된 리소스에게는 이 계약이 처음부터 없다.
 </p>
 
 <div class="callout callout-teal">
 <div class="callout-title">디버깅 팁: 예산을 강제로 줄여서 재현하기</div>
-이 크래시 부류의 고약한 점은 개발 머신(VRAM 넉넉)에서 재현이 안 된다는 것이다. 5.8에 들어온 <code>D3D12.ResidencyDebugBudgetMB</code>가 정확히 이 용도다. 예산을 강제로 128MB 따위로 낮추면 eviction과 MakeResident가 격렬하게 돌면서, 평소에는 "예산이 넉넉해 evict가 안 일어나서" 숨어 있던 <strong>UpdateResidency 누락이 즉시 페이지 폴트로 드러난다</strong>. cvar 도움말 원문도 "exposing missing UpdateResidency calls that would otherwise be hidden"이라고 쓴다. 유사품으로 <code>D3D12.EvictAllResidentResourcesInBackground</code>는 포커스를 잃은 앱의 예산을 0으로 만들어 VRAM을 통째로 반납하는 운영용 스위치다.
+이 크래시 부류의 고약한 점은 개발 머신(VRAM 넉넉)에서 재현이 안 된다는 것이다. 5.8에서 새로 추가된 <code>D3D12.ResidencyDebugBudgetMB</code>가 정확히 이 용도다(5.7 릴리스에는 없다. 도입 커밋 메시지부터 "CVar for stress testing residency manager"다). 예산을 강제로 128MB 따위로 낮추면 eviction과 MakeResident가 격렬하게 돌면서, 평소에는 "예산이 넉넉해 evict가 안 일어나서" 숨어 있던 <strong>UpdateResidency 누락이 즉시 페이지 폴트로 드러난다</strong>. cvar 도움말 원문도 "exposing missing UpdateResidency calls that would otherwise be hidden"이라고 쓴다. 유사품으로 <code>D3D12.EvictAllResidentResourcesInBackground</code>는 포커스를 잃은 앱의 예산을 0으로 만들어 VRAM을 통째로 반납하는 운영용 스위치다.
 </div>
 </div>
 
@@ -1135,19 +1202,19 @@ eviction은 두 갈래다. <strong>aged eviction</strong>(<code>TrimAgedAllocati
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-GPU가 <code>DispatchRays</code>를 실행하는 순간을 그려 보자. ray가 삼각형에 맞고, 하드웨어가 05장의 산식으로 SBT 레코드 주소를 계산하고, 레코드의 식별자로 히트 셰이더를 띄우고, 셰이더가 레코드에서 시스템 파라미터를 읽어 <code>ResourceDescriptorHeap[인덱스]</code> 또는 GPU VA로 버텍스 버퍼에 접근한다. 이 접근에는 <strong>어떤 검증도 없다</strong>. 주소 변환 하드웨어가 페이지 테이블을 찾아볼 뿐이다. 그 리소스가 속한 32MiB 블록이 10장에서 evict된 상태라면 매핑이 없고, GPU 페이지 폴트가 난다. GPU는 이 폴트에서 복구하지 못한다. OS의 TDR<span class="fn-note"><input type="checkbox" id="fn-tdr" class="fn-toggle"><label for="fn-tdr" class="fn-ref">2</label><span class="fn-body"><strong>TDR(Timeout Detection and Recovery):</strong> GPU가 일정 시간(기본 2초) 안에 응답하지 않으면 OS가 드라이버를 강제 리셋하는 Windows의 안전장치. 앱 입장에서는 디바이스가 통째로 사라지는 것으로 보인다.</span></span>이 드라이버를 리셋하고, 앱에는 <code>DXGI_ERROR_DEVICE_REMOVED</code>(사유는 주로 <code>DXGI_ERROR_DEVICE_HUNG</code>)가 돌아온다.
+GPU가 <code>DispatchRays</code>를 실행하는 순간을 그려 보자. ray가 삼각형에 맞고, 하드웨어가 05장의 산식으로 SBT 레코드 주소를 계산하고, 레코드의 식별자로 히트 셰이더를 띄우고, 셰이더가 레코드에서 시스템 파라미터를 읽어 <code>ResourceDescriptorHeap[인덱스]</code> 또는 GPU VA로 버텍스 버퍼에 접근한다. 이 접근에는 <strong>어떤 검증도 없다</strong>. 주소 변환 하드웨어가 페이지 테이블을 찾아볼 뿐이다. 그 리소스가 속한 32MiB 블록이 10장에서 evict된 상태라면 매핑이 없고, GPU 페이지 폴트가 난다. GPU는 이 폴트에서 복구하지 못한다. OS의 TDR<span class="fn-note"><input type="checkbox" id="fn-tdr" class="fn-toggle"><label for="fn-tdr" class="fn-ref">8</label><span class="fn-body"><strong>TDR(Timeout Detection and Recovery):</strong> GPU가 일정 시간(기본 2초) 안에 응답하지 않으면 OS가 드라이버를 강제 리셋하는 Windows의 안전장치. 앱 입장에서는 디바이스가 통째로 사라지는 것으로 보인다.</span></span>이 드라이버를 리셋하고, 앱에는 <code>DXGI_ERROR_DEVICE_REMOVED</code>(사유는 주로 <code>DXGI_ERROR_DEVICE_HUNG</code>)가 돌아온다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-언리얼이 이것을 감지하고 리포트하는 경로도 소스에 다 있다. RHI 인터럽트 스레드(<code>ProcessInterruptQueue</code>, <code>D3D12Submission.cpp:1064</code>)가 세 가지 신호로 크래시를 잡는다. 드라이버가 크래시 시 펜스를 <code>UINT64_MAX</code>로 시그널하는 것, <code>GetDeviceRemovedReason()</code>이 에러를 반환하는 것, Submit 후 5초(기본 <code>r.D3D12.SubmissionTimeout</code>) 내 완료가 안 되는 행(hang)이다. 잡히면 <code>OutputGPUCrashReport</code>가 리포트를 조립하는데, 페이지 폴트에서 중요한 것은 <strong>폴트가 난 GPU 가상 주소</strong>다. NVIDIA Aftermath의 <code>GPUFaultAddress</code>, 또는 D3D12 표준 기능인 DRED<span class="fn-note"><input type="checkbox" id="fn-dred" class="fn-toggle"><label for="fn-dred" class="fn-ref">3</label><span class="fn-body"><strong>DRED(Device Removed Extended Data):</strong> 디바이스 제거 시점의 자동 브레드크럼(어느 커맨드리스트의 몇 번째 오퍼레이션까지 완료됐나)과 페이지 폴트 정보를 드라이버가 남겨 주는 D3D12 진단 기능. 언리얼은 <code>-dred</code> 커맨드라인이나 <code>r.D3D12.DRED</code>로 켠다.</span></span>의 <code>GetPageFaultAllocationOutput</code>이 주는 <code>PageFaultVA</code>가 그것이다.
+언리얼이 이것을 감지하고 리포트하는 경로도 소스에 다 있다. RHI 인터럽트 스레드(<code>ProcessInterruptQueue</code>, <code>D3D12Submission.cpp:1064</code>)가 세 가지 신호로 크래시를 잡는다. 드라이버가 크래시 시 펜스를 <code>UINT64_MAX</code>로 시그널하는 것, <code>GetDeviceRemovedReason()</code>이 에러를 반환하는 것, Submit 후 5초(기본 <code>r.D3D12.SubmissionTimeout</code>) 내 완료가 안 되는 행(hang)이다. 잡히면 <code>OutputGPUCrashReport</code>가 리포트를 조립하는데, 페이지 폴트에서 중요한 것은 <strong>폴트가 난 GPU 가상 주소</strong>다. NVIDIA Aftermath의 <code>GPUFaultAddress</code>, 또는 D3D12 표준 기능인 DRED<span class="fn-note"><input type="checkbox" id="fn-dred" class="fn-toggle"><label for="fn-dred" class="fn-ref">9</label><span class="fn-body"><strong>DRED(Device Removed Extended Data):</strong> 디바이스 제거 시점의 자동 브레드크럼(어느 커맨드리스트의 몇 번째 오퍼레이션까지 완료됐나)과 페이지 폴트 정보를 드라이버가 남겨 주는 D3D12 진단 기능. 언리얼은 <code>-dred</code> 커맨드라인이나 <code>r.D3D12.DRED</code>로 켠다.</span></span>의 <code>GetPageFaultAllocationOutput</code>이 주는 <code>PageFaultVA</code>가 그것이다.
 </p>
 
 <p style="color:var(--text2);line-height:1.85;">
-주소 하나만으로는 아무것도 알 수 없으니, 언리얼은 자체 할당 추적 DB(<code>D3D12.TrackAllAllocations</code>)로 3중 대조를 한다. <code>LogPageFaultData</code>(<code>D3D12Util.cpp:657</code>)가 폴트 주소 <strong>±16MB의 살아 있는 리소스</strong>, 주소를 포함하는 <strong>활성 힙</strong>, 그리고 <strong>최근 100프레임 안에 해제된 할당</strong>을 이름·크기·거리와 함께 출력한다. 여기서 폴트의 두 시그니처가 갈린다.
+주소 하나만으로는 아무것도 알 수 없으니, 언리얼은 자체 할당 추적 DB(<code>D3D12.TrackAllAllocations</code>)로 3중 대조를 한다. <code>LogPageFaultData</code>(<code>D3D12Util.cpp:657</code>)가 폴트 주소 <strong>±16MB의 살아 있는 리소스</strong>, 주소를 포함하는 <strong>활성 힙</strong>, 그리고 <strong>최근 100프레임 안에 해제된 할당</strong>을 이름·크기·거리와 함께 출력한다. 주소를 직접 대조할 때 주의점이 하나 있다. 폴트 주소는 셰이더가 건드린 정확한 바이트가 아니라 GPU MMU가 관리하는 <strong>64KB 페이지의 시작 주소로 반올림</strong>되어 온다. "폴트 주소 − 리소스 시작"으로 블록 안 오프셋을 계산했다면 그 값은 정확한 지점이 아니라 64KB 창의 시작으로 읽어야 한다. 여기서 폴트의 두 시그니처가 갈린다.
 </p>
 
 <div class="scene-fig">
-<svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="페이지 폴트 주소를 3중 대조하는 진단 흐름. 활성 리소스에 잡히면 residency 신고 누락 의심, 최근 해제 목록에 잡히면 use-after-free 의심으로 갈린다">
+<svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="페이지 폴트 주소를 3중 대조하는 진단 흐름. 활성 리소스에 잡히면 residency 등록 누락 의심, 최근 해제 목록에 잡히면 use-after-free 의심으로 갈린다">
 <defs><marker id="pf-a" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#6b7484"/></marker></defs>
 <rect x="264" y="24" width="232" height="52" rx="8" fill="#fdeef0" stroke="#d6304a" stroke-width="2"/>
 <text x="282" y="46" font-family="Consolas, monospace" font-size="12" font-weight="700" fill="#a3243a">PageFaultVA = 0x2'4012'8000</text>
@@ -1170,7 +1237,7 @@ GPU가 <code>DispatchRays</code>를 실행하는 순간을 그려 보자. ray가
 <rect x="40" y="236" width="330" height="76" rx="8" fill="#fdeef0" stroke="#d6304a" stroke-width="1.5"/>
 <text x="56" y="260" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#a3243a">활성 쪽에서 잡혔다면</text>
 <text x="56" y="282" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#2b2f3d">리소스는 살아 있는데 접근 실패 = evict 의심.</text>
-<text x="56" y="300" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#2b2f3d">이 글의 주제, residency 신고 누락 쪽이다</text>
+<text x="56" y="300" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#2b2f3d">이 글의 주제, residency 등록 누락 쪽이다</text>
 <rect x="406" y="236" width="330" height="76" rx="8" fill="#fdf7ec" stroke="#d9a441" stroke-width="1.5"/>
 <text x="422" y="260" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="#8a6716">최근 해제 쪽에서 잡혔다면</text>
 <text x="422" y="282" font-family="Segoe UI, sans-serif" font-size="11.5" fill="#2b2f3d">use-after-free. SBT 레코드가 낡은 주소를 든 채</text>
@@ -1182,6 +1249,11 @@ GPU가 <code>DispatchRays</code>를 실행하는 순간을 그려 보자. ray가
 <p style="color:var(--text2);line-height:1.85;">
 이 글의 시나리오, 즉 <strong>선언 누락 + evict</strong>는 첫 번째 시그니처로 나타난다. 리소스가 해제된 적이 없으므로 "Active objects with VA ranges that match the faulting VA" 목록에 멀쩡한 이름으로 잡히는데 GPU는 접근에 실패한 것이다. 그 순간 함께 찍히는 메모리 통계에서 사용량이 예산 근처(70% 이상)라면 원인은 이 부류로 좁혀진다. 반대로 "Recent freed objects" 쪽에 잡히면 07장의 리스너 체계가 막아야 했을 use-after-free 부류다. 마지막으로, evict된 리소스 접근을 <strong>크래시 전에</strong> 잡는 수단도 있다. D3D 디버그 레이어(<code>-d3ddebug</code>)는 ExecuteCommandLists 시점에 non-resident 리소스 참조를 에러로 뱉고, 10장의 <code>ResidencyDebugBudgetMB</code>는 넉넉한 개발 머신에서도 그 상황을 강제로 만들어 준다.
 </p>
+
+<div class="callout callout-teal">
+<div class="callout-title">지름길: NVIDIA 카드라면 Aftermath가 덤프 한 장에서 시그니처를 갈라 준다</div>
+Aftermath의 리소스 트래킹(<code>r.GPUCrashDebugging</code> 계열로 활성)을 켜 두면 드라이버가 리소스의 생성·파괴·evict를 전부 지켜보다가, 폴트 시점에 폴트 주소와 겹치는 리소스들을 <strong>상태 필드와 함께</strong> 덤프에 실어 준다. 그중 두 필드가 위의 두 시그니처와 1:1로 대응한다. <code>Residency: Evicted</code> + <code>Was Destroyed: False</code>라면 살아 있는 리소스의 매핑만 사라진 것, 즉 <strong>등록 누락 부류</strong>이고, <code>Was Destroyed: True</code>라면 use-after-free 부류다. 3중 대조 로그를 뒤지기 전에 첫 판정이 이 두 줄로 끝난다. 참고로 같은 폴트 주소에 후보 리소스가 여러 개 나열되는 것(<code>Resource 0/N</code>)은 버그가 아니라 GPU 가상 주소가 재사용되기 때문이다. 그 자리에 있다가 파괴된 옛 리소스들이 함께 나오므로, <code>Was Destroyed: False</code>인 항목이 지금 문제가 된 리소스다.
+</div>
 </div>
 
 <div class="research-post">
@@ -1193,19 +1265,19 @@ GPU가 <code>DispatchRays</code>를 실행하는 순간을 그려 보자. ray가
 
 <div class="research-post">
 <p style="color:var(--text2);line-height:1.85;">
-정리하자. WDDM은 GPU 메모리를 가상화했고, 그 결과가 작업관리자의 80GB다. 대신 D3D12 앱에게는 의무가 하나 생겼다. <strong>이번 Submit에서 어떤 리소스를 쓰는지 residency 매니저에 직접 알려야 한다.</strong> 언리얼의 레이트레이싱은 이 일을 두 흐름으로 나눠 처리한다. 주소는 SBT 레코드에 한 번만 기록하고(데이터 흐름), 그 주소가 가리키는 리소스는 매 Submit마다 다시 신고한다(선언 흐름). 크래시가 나는 조건도 여기서 그대로 나온다. <strong>레코드에는 주소가 남아 있는데 신고가 끊긴 리소스가 있고, VRAM 사용량이 예산의 70%를 넘어 그 리소스가 evict되는 순간이다.</strong>
+정리하자. WDDM은 GPU 메모리를 가상화했고, 그 결과가 작업관리자의 80GB다. 대신 프로그래머가 해줘야 할 일이 하나 생겼다. <strong>이번 Submit에서 어떤 리소스를 쓰는지 residency 매니저에 직접 알려야 한다.</strong> 언리얼의 레이트레이싱은 이 일을 두 흐름으로 나눠 처리한다. 주소는 SBT 레코드에 한 번만 기록하고(데이터 흐름), 그 주소가 가리키는 리소스는 매 Submit마다 다시 등록한다(선언 흐름). 크래시가 나는 조건도 여기서 그대로 나온다. <strong>레코드에는 주소가 남아 있는데 등록이 끊긴 리소스가 있고, VRAM 사용량이 예산의 70%를 넘어 그 리소스가 evict되는 순간이다.</strong>
 </p>
 
 <div class="card-grid">
 <div class="card blue">
 <div class="card-label">두 흐름</div>
-<div class="card-title">기록은 한 번, 신고는 매번</div>
-<div class="card-desc">주소는 바인딩 때 레코드에 기록되고(06장), residency 신고는 디스패치마다 ResidencySet에 쌓인다(09장). 서로 다른 코드 경로라 한쪽만 살아남을 수 있다는 것이 크래시의 근원이다.</div>
+<div class="card-title">기록은 한 번, 등록은 매번</div>
+<div class="card-desc">주소는 바인딩 때 레코드에 기록되고(06장), residency 등록은 디스패치마다 ResidencySet에 쌓인다(09장). 서로 다른 코드 경로라 한쪽만 살아남을 수 있다는 것이 크래시의 근원이다.</div>
 </div>
 <div class="card teal">
-<div class="card-label">32 MiB</div>
+<div class="card-label">4~64 MiB</div>
 <div class="card-title">residency의 단위는 블록</div>
-<div class="card-desc">16MiB 이하 버퍼는 32MiB 풀 블록에서 서브할당되고 residency 핸들은 블록에 하나다. MakeResident도 Evict도 블록 단위. 씬 추적의 핸들 dedup이 이 구조를 최적화로 되쓴다.</div>
+<div class="card-desc">버퍼는 풀 블록에서 서브할당되고(기본 버퍼 풀 32MiB, 업로드 힙 4MiB, 텍스처 풀 64MiB) residency 핸들은 블록에 하나다. MakeResident도 Evict도 블록 단위. 씬 추적의 핸들 dedup이 이 구조를 최적화로 되쓴다.</div>
 </div>
 <div class="card coral">
 <div class="card-label">0.7f · 60s→1s</div>
@@ -1215,12 +1287,12 @@ GPU가 <code>DispatchRays</code>를 실행하는 순간을 그려 보자. ray가
 <div class="card gold">
 <div class="card-label">PageFaultVA</div>
 <div class="card-title">폴트에는 시그니처가 있다</div>
-<div class="card-desc">활성 리소스 목록에 잡히면 신고 누락 + evict, 최근 해제 목록에 잡히면 use-after-free. TrackAllAllocations와 DRED/Aftermath, 그리고 예산을 조이는 ResidencyDebugBudgetMB가 진단 도구다.</div>
+<div class="card-desc">활성 리소스 목록에 잡히면 등록 누락 + evict, 최근 해제 목록에 잡히면 use-after-free. TrackAllAllocations와 DRED/Aftermath, 그리고 예산을 조이는 ResidencyDebugBudgetMB가 진단 도구다.</div>
 </div>
 </div>
 
 <p style="color:var(--text2);line-height:1.85;">
-숫자로 다시 새겨 두자. 작업관리자의 GPU 메모리 = 전용 VRAM + 시스템 RAM의 절반. 레코드 = 식별자 32B + 시스템 파라미터 32B(Config·IB오프셋·FirstPrimitive·UserData + IB/VB의 인덱스 또는 주소 union) + 루트 CBV 8B×N, stride는 32B 정렬. 세그먼트당 레코드 2줄(머티리얼/섀도). 풀 블록 32MiB, 풀행 문턱 16MiB. 트리밍 문턱 0.7, 유예 1~60초, 파이프라인 깊이 6, 동시 ResidencySet 1,024개. 그리고 bindless에서 레코드에 직접 기록되는 인덱스는 시스템 IB/VB 둘뿐이며, 셰이더의 register 없는 선언은 컴파일러 rewriter가 <code>ResourceDescriptorHeap[레코드의 루트 상수]</code>로 바꿔 쓴다. 이 파이프라인의 나머지 절반, 즉 레코드 줄 번호를 계산해 셰이더를 띄우는 GPU 쪽 이야기는 <a href="/raytracing-shader">레이트레이싱 셰이더 글</a>에서 이어진다.
+마지막으로 이 글의 핵심 숫자들만 모아 두자. 작업관리자의 GPU 메모리 = 전용 VRAM + 시스템 RAM의 절반. 레코드 = 식별자 32B + 시스템 파라미터 32B(Config·IB오프셋·FirstPrimitive·UserData + IB/VB의 인덱스 또는 주소 union) + 루트 CBV 8B×N, stride는 32B 정렬. 세그먼트당 레코드 2줄(머티리얼/섀도). 풀 블록 32MiB(기본 버퍼 풀 기준. 업로드 힙 4MiB·텍스처 풀 64MiB), 풀행 문턱 16MiB. 트리밍 문턱 0.7, 유예 1~60초, 파이프라인 깊이 6, 동시 ResidencySet 1,024개. 그리고 bindless에서 레코드에 직접 기록되는 인덱스는 시스템 IB/VB 둘뿐이며, 셰이더의 register 없는 선언은 컴파일러 rewriter가 <code>ResourceDescriptorHeap[레코드의 루트 상수]</code>로 바꿔 쓴다. 이 파이프라인의 나머지 절반, 즉 레코드 줄 번호를 계산해 셰이더를 띄우는 GPU 쪽 이야기는 <a href="/raytracing-shader">레이트레이싱 셰이더 글</a>에서 이어진다.
 </p>
 
 <span class="section-eyebrow">참고</span>
